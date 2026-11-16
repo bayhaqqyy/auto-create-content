@@ -1,0 +1,11 @@
+node_modules
+.next
+out
+# data lokal: channel, produk, proyek, video hasil render, aset upload
+data/
+# rahasia
+.env
+.env.local
+.env.*.local
+*.log
+*.tsbuildinfo
