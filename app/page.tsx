@@ -7,6 +7,7 @@ import { TplPreview } from "../components/Strip";
 import { useChannel } from "../components/channel";
 import type { Character, Template, Layout } from "../lib/types";
 import { LAYOUTS } from "../lib/defaults";
+import { ANIM_LAYOUTS } from "../lib/anim";
 
 const QUICK: Record<string, string[]> = {
   kodekepo: ["Kode dial HP yang jarang diketahui", "Cara kerja kode di meteran listrik", "Kenapa bank di Indonesia sering diserang siber"],
@@ -159,8 +160,13 @@ function CreatePage() {
           <Seg label="Platform" opts={["TikTok", "Reels", "Shorts"]} value={platform} onChange={setPlatform} />
           <Seg label="Durasi" opts={["45 detik", "60 detik", "75 detik"]} value={dur} onChange={setDur} />
           <Seg label="Penonton" opts={["Gen Z", "Umum (FB)"]} value={audience} onChange={setAudience} />
-          <Seg label="Tampilan" opts={LAYOUTS.map((l) => l.name)} value={LAYOUTS.find((l) => l.id === layout)?.name || LAYOUTS[0].name} onChange={(v) => setLayout(LAYOUTS.find((l) => l.name === v)?.id || "kartu")} />
-          <Seg label="Visual" opts={["Kartu motion graphic", "Gambar 3D AI"]} value={style === "3d" ? "Gambar 3D AI" : "Kartu motion graphic"} onChange={(v) => setStyle(v === "Gambar 3D AI" ? "3d" : "cards")} />
+          <div className="field" style={{ width: 220 }}>
+            <label htmlFor="lay">Tampilan</label>
+            <select id="lay" className="select" value={layout} onChange={(e) => setLayout(e.target.value as Layout)}>
+              {LAYOUTS.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          </div>
+          {ANIM_LAYOUTS.includes(layout as any) ? null : <Seg label="Visual" opts={["Kartu motion graphic", "Gambar 3D AI"]} value={style === "3d" ? "Gambar 3D AI" : "Kartu motion graphic"} onChange={(v) => setStyle(v === "Gambar 3D AI" ? "3d" : "cards")} />}
           <div className="field" style={{ width: 160 }}>
             <label htmlFor="ep">Nomor episode</label>
             <input id="ep" className="input" placeholder="EP.026" value={episode} onChange={(e) => setEpisode(e.target.value)} />

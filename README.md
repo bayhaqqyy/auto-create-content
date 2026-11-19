@@ -27,15 +27,22 @@ Disamakan dengan episode yang sudah tayang: latar navy dengan grid 60px dan ling
 
 ### Tampilan video & galeri template
 
-Ada tiga tampilan video, dipilih di brand kit (bawaan channel), di template, atau saat membuat konten:
+Ada enam tampilan video, dipilih di brand kit (bawaan channel), di template, atau saat membuat konten:
 
 - **Kartu gelap**: latar gelap brand, judul bab, kartu motion graphic (gaya EP lama).
 - **Layar HP terang**: latar terang penuh dengan HP besar di tengah; isi scene (chat, notifikasi, langkah, angka) tampil di layar HP. Gaya EP.031/032 yang retensinya paling tinggi.
 - **Teks besar**: judul bab sangat besar di tengah dan subtitle besar tanpa kotak, cocok untuk daftar, fakta cepat, dan cerita POV.
+- **Horor kartun**: kartun 2D bergaris tebal (gaya serial KKN). Tokoh berekspresi (kulit, rambut, hijab, peci, sarung, kacamata), set kamar posko, rumah panggung, warung, sungai klotok, jalan kampung, rumah tua, hutan. Ada cap waktu di pojok, judul serial, subtitle bernama, efek ketukan TOK!, cahaya merah, sosok bermata merah, lampu padam, dan kotak voting di scene terakhir.
+- **Stickman ekspresif**: stickman bersendi dengan ekspresi besar (kaget, panik, bingung, bangga…), properti HP, 7 set berwarna, efek kaget, bohlam ide, stempel MITOS/SALAH, centang, dan konfeti.
+- **Motivasi siluet**: siluet sinematik; langit berubah dari hujan ke matahari terbit sepanjang video, ada anak tangga yang dinaiki satu per satu, puncak, kota, dan jalan.
+
+Tiga tampilan animasi digambar langsung dari kode (`remotion/anim/`), jadi tidak butuh gambar AI. Saat menulis naskah, AI memilih untuk tiap scene: tempat, tokoh, pose, ekspresi, kejadian, dan gerak kamera dari daftar di `lib/anim.ts`. Naskah cerita lalu diperiksa sekali lagi oleh AI (alur sebab-akibat, konsistensi tokoh dan jam, kecocokan arahan dengan kalimat) sebelum disimpan. Semua arahan bisa diubah per scene di editor proyek. Wujud kartun tiap karakter channel diatur di halaman Karakter. Horor dan motivasi memakai musik latar sendiri (`bgm-horor.wav`, `bgm-motivasi.wav`).
+
+Template berjenis **cerita** (Horor Kartun Serial, Motivasi Siluet) tidak melakukan riset web; aturannya melarang angka, nama orang nyata, dan kutipan tokoh terkenal.
 
 Header nama channel di atas video sekarang mati secara bawaan karena area itu tertutup kolom cari TikTok; bisa dinyalakan lagi di brand kit.
 
-Menu **Template** punya **Galeri template** yang bisa dipakai channel mana pun: Cek Sekarang, Arti Tanda Misterius, Berita Cepat, Mitos vs Fakta, Top 3 Hitung Mundur, POV Cerita Singkat, dan Tanya Jawab Duo.
+Menu **Template** punya **Galeri template** yang bisa dipakai channel mana pun: Horor Kartun Serial, Stickman Mitos vs Fakta, Motivasi Siluet, Cek Sekarang, Arti Tanda Misterius, Berita Cepat, Mitos vs Fakta, Top 3 Hitung Mundur, POV Cerita Singkat, dan Tanya Jawab Duo.
 Saat ditambahkan, peran narator/penanya/penjawab otomatis diisi karakter channel aktif. Semua preset membawa aturan hook: detik 0-2 kerugian/kejutan plus visual, detik 2-5 janji payoff, detik 5 langsung isi.
 
 ### Gaya visual

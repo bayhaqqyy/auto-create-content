@@ -7,6 +7,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { channelDir, getChannels, getCharacters, getTemplates, ROOT } from "../lib/store";
 import type { Channel, Scene, Template } from "../lib/types";
+import { isAnimLayout, LOOK_PRESETS } from "../lib/anim";
+import { demoScript } from "../lib/script";
 
 type Sample = Omit<Scene, "id" | "speaker" | "prompt"> & { slot?: number };
 
@@ -79,16 +81,21 @@ async function main() {
     for (const t of getTemplates(ch.id)) {
       keep.add(`${t.id}.jpg`);
       if (t.kind === "affiliate") continue;
-      const s = sampleFor(t);
+      const layout = t.layout || ch.layout || "kartu";
+      // tampilan animasi: pakai scene khas dari naskah contohnya (sudah berisi arahan animasi)
+      const animSlot = { horor: 2, stickman: 2, motivasi: 4 } as Record<string, number>;
+      const s: Sample = isAnimLayout(layout) ? { ...demoScript(ch.id, layout).scenes[animSlot[layout]] } : sampleFor(t);
       const slot = t.scenes[Math.min(s.slot ?? 0, t.scenes.length - 1)];
       const speaker = slot?.speaker || chars[0]?.id || "narator";
       const sec = 4;
-      const scene: Scene = { id: "s1", speaker, tag: s.tag, text: s.text, screenText: s.screenText, keyword: s.keyword, visual: s.visual, prompt: "", durationSec: sec };
+      const scene: Scene = { id: "s1", speaker, tag: s.tag, text: s.text, screenText: s.screenText, keyword: s.keyword, visual: s.visual, prompt: "", durationSec: sec, anim: s.anim };
       const inputProps = {
         scenes: [scene],
         cues: cuesOf(s.text, sec),
         characters: chars.map((c) => ({ id: c.id, name: c.name, color: c.color, textColor: c.textColor })),
-        theme: { headerText: ch.headerText, tagline: ch.tagline, outroTeaser: ch.outroTeaser, outroFollow: ch.outroFollow, colors: ch.colors, grid: ch.grid, bgmVolume: 0, channelName: ch.name, font: ch.font, layout: t.layout || ch.layout || "kartu", showHeader: !!ch.showHeader },
+        theme: { headerText: ch.headerText, tagline: ch.tagline, outroTeaser: ch.outroTeaser, outroFollow: ch.outroFollow, colors: ch.colors, grid: ch.grid, bgmVolume: 0, channelName: ch.name, font: ch.font, layout, showHeader: !!ch.showHeader },
+        looks: isAnimLayout(layout) ? { ...LOOK_PRESETS } : undefined,
+        videoTitle: isAnimLayout(layout) ? demoScript(ch.id, layout).title : "",
         episode: "",
         hookTitle: "",
         hookKeyword: "",

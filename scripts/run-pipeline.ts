@@ -10,7 +10,8 @@ import { hasApiKey, image, pcmToWav, tts, video, wavDuration, type RefImage } fr
 import { generateJson, hasTextAI, research } from "../lib/claude";
 import { AD_SCHEMA, AD_TEMPLATE_ID, adScenes, buildAdPrompt, demoAd, sanitizeAd, type AdResult } from "../lib/adscript";
 import { execFileSync } from "node:child_process";
-import { buildPrompt, demoScript, sanitizeScript, SCRIPT_SCHEMA, type ScriptResult } from "../lib/script";
+import { animCast, buildPrompt, demoScript, reviewPrompt, sanitizeScript, scriptSchema, SCRIPT_SCHEMA, type ScriptResult } from "../lib/script";
+import { isAnimLayout, LOOK_PRESETS } from "../lib/anim";
 import { adChecks, runChecks } from "../lib/policy";
 import { allCues, toSrt } from "../lib/subtitle";
 import type { Channel, Character, Layout, Project, Scene } from "../lib/types";
@@ -125,12 +126,23 @@ async function doScript(p: Project) {
   if (!t) throw new Error("Template tidak ditemukan");
   const ch = channelOf(p);
   const chars = getCharacters(ch.id);
+  const layout = layoutOf(p);
+  const castIds = animCast(chars).map((c) => c.id);
   let result: ScriptResult;
   if (!hasTextAI()) {
     set(p, { status: "researching", stage: "Mode demo: memakai naskah contoh", progress: 0.1, demo: true });
-    result = demoScript(ch.id);
+    result = demoScript(ch.id, layout);
     p.facts = [];
     p.sources = [];
+  } else if (t.kind === "cerita") {
+    // cerita fiksi / motivasi: tidak ada klaim fakta, jadi tidak perlu riset web
+    p.facts = [];
+    p.sources = [];
+    set(p, { status: "writing", stage: "Menulis cerita", progress: 0.15, demo: false });
+    const base = buildPrompt(p, t, chars, [], ch, layout);
+    const draft = await generateJson<ScriptResult>(base, scriptSchema(layout));
+    set(p, { status: "writing", stage: "Memeriksa alur dan konsistensi cerita", progress: 0.22 });
+    result = await generateJson<ScriptResult>(reviewPrompt(base, sanitizeScript(draft, t, [], layout, castIds)), scriptSchema(layout));
   } else {
     set(p, { status: "researching", stage: "Riset sumber", progress: 0.05, demo: false });
     const r = await research(p.topic);
@@ -146,9 +158,14 @@ async function doScript(p: Project) {
     p.facts = r.facts;
     p.sources = r.sources.slice(0, 8).map((s) => ({ ...s, verified: false }));
     set(p, { status: "writing", stage: `Menulis naskah (${r.sources.length} sumber ditemukan)`, progress: 0.2 });
-    result = await generateJson<ScriptResult>(buildPrompt(p, t, chars, r.facts, ch), SCRIPT_SCHEMA);
+    const base = buildPrompt(p, t, chars, r.facts, ch, layout);
+    result = await generateJson<ScriptResult>(base, scriptSchema(layout));
+    if (isAnimLayout(layout)) {
+      set(p, { status: "writing", stage: "Memeriksa alur dan arahan animasi", progress: 0.25 });
+      result = await generateJson<ScriptResult>(reviewPrompt(base, sanitizeScript(result, t, [], layout, castIds)), scriptSchema(layout));
+    }
   }
-  result = sanitizeScript(result, t, p.productIds || []);
+  result = sanitizeScript(result, t, p.productIds || [], layout, castIds);
   const scenes: Scene[] = result.scenes.map((s, i) => ({ ...s, id: `s${i + 1}` }));
   set(p, {
     title: result.title,
@@ -158,9 +175,20 @@ async function doScript(p: Project) {
     hashtags: result.hashtags,
     coverText: result.coverText,
     coverKeyword: result.coverKeyword,
+    // arahan animasi hanya cocok untuk tampilannya sendiri, jadi tampilan proyek dikunci
+    layout: isAnimLayout(layout) ? layout : p.layout,
     progress: 0.3,
   });
   return true;
+}
+
+/** Tampilan tokoh kartun: preset + karakter channel (pakai look2d sendiri, atau preset sesuai urutan). */
+function looksFor(ch: Channel) {
+  const looks: Record<string, any> = {};
+  for (const [id, l] of Object.entries(LOOK_PRESETS)) looks[id] = l;
+  const order = ["pemuda", "pemudi-hijab", "pemuda-kaos", "pemudi", "bapak-tua", "ibu-tua", "bapak"];
+  getCharacters(ch.id).forEach((c, i) => (looks[c.id] = c.look2d || LOOK_PRESETS[order[i % order.length]]));
+  return looks;
 }
 
 /** Samakan kerasnya suara antar scene (RMS sekitar -18 dBFS, puncak dibatasi -1 dBFS). */
@@ -278,6 +306,7 @@ export function visualModeOf(p: Project): "cards" | "3d" {
 async function doImages(p: Project, only?: string) {
   if (!hasApiKey()) return; // mode demo: tetap motion graphic
   if (!only && visualModeOf(p) !== "3d") return;
+  if (isAnimLayout(layoutOf(p))) return; // tampilan animasi digambar sendiri, tidak butuh gambar AI
   const list = p.scenes.filter((s) => (only ? s.id === only : !s.image && s.visual.kind !== "clip" && s.visual.kind !== "product"));
   for (let i = 0; i < list.length; i++) {
     set(p, { status: "imaging", stage: `Membuat gambar 3D scene ${i + 1} dari ${list.length}`, progress: 0.5 + (0.2 * i) / list.length });
@@ -308,7 +337,10 @@ async function doRender(p: Project) {
     logo = "brand-" + ch.logo;
     fs.copyFileSync(path.join(cdir, ch.logo), path.join(pub, logo));
   }
-  let bgm: string | undefined = ch.bgmPreset === "none" ? undefined : `audio/bgm-${ch.bgmPreset}.wav`;
+  const lay = layoutOf(p);
+  // tampilan horor & motivasi punya musik latar sendiri kecuali channel memakai musik upload atau mematikan musik
+  const preset = lay === "horor" || lay === "motivasi" ? lay : ch.bgmPreset;
+  let bgm: string | undefined = ch.bgmPreset === "none" ? undefined : `audio/bgm-${preset}.wav`;
   if (ch.bgm && fs.existsSync(path.join(cdir, ch.bgm))) {
     bgm = "brand-" + ch.bgm;
     fs.copyFileSync(path.join(cdir, ch.bgm), path.join(pub, bgm));
@@ -351,6 +383,8 @@ async function doRender(p: Project) {
     hookKeyword: p.coverKeyword || "",
     logo,
     bgm,
+    looks: isAnimLayout(lay) ? looksFor(ch) : undefined,
+    videoTitle: p.title || "",
   };
   const browserExecutable = process.env.REMOTION_BROWSER || null;
   const composition = await selectComposition({ serveUrl, id: "KodeKepoVideo", inputProps, browserExecutable });
@@ -423,13 +457,15 @@ async function doRewrite(p: Project, sid: string) {
   }
   set(p, { status: "writing", stage: `Menulis ulang scene ${idx + 1}`, progress: 0.3 });
   const ch = channelOf(p);
-  const base = buildPrompt(p, t, getCharacters(ch.id), p.facts || [], ch);
-  const ctx = p.scenes.map((s, i) => `${i + 1}. [${s.speaker}] ${s.text}`).join("\n");
+  const layout = layoutOf(p);
+  const chars = getCharacters(ch.id);
+  const base = buildPrompt(p, t, chars, p.facts || [], ch, layout);
+  const ctx = p.scenes.map((s, i) => `${i + 1}. [${s.speaker}] ${s.text}${s.anim ? ` (set ${s.anim.set}, tokoh ${s.anim.cast.map((c) => c.who).join(", ")})` : ""}`).join("\n");
   const one = await generateJson<ScriptResult["scenes"][number]>(
     `${base}\n\nNASKAH SAAT INI:\n${ctx}\n\nTulis ulang HANYA scene ${idx + 1} (speaker tetap ${p.scenes[idx].speaker}) supaya lebih nyambung dan menarik. Balas JSON satu scene.`,
-    (SCRIPT_SCHEMA.properties.scenes as any).items,
+    scriptSchema(layout).properties.scenes.items,
   );
-  const clean = sanitizeScript({ ...demoScript(), scenes: [{ ...one, speaker: p.scenes[idx].speaker }] }, t, p.productIds || []).scenes[0];
+  const clean = sanitizeScript({ ...demoScript(), scenes: [{ ...one, speaker: p.scenes[idx].speaker }] }, t, p.productIds || [], layout, animCast(chars).map((c) => c.id)).scenes[0];
   p.scenes[idx] = { ...p.scenes[idx], ...clean, audio: p.scenes[idx].audio, durationSec: p.scenes[idx].durationSec, image: p.scenes[idx].image };
   await voiceScene(p, p.scenes[idx]);
 }

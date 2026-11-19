@@ -5,6 +5,56 @@ import { useRouter } from "next/navigation";
 import { api } from "../../../components/api";
 import type { Character, Product, Project, Scene, Template, VisualKind } from "../../../lib/types";
 import { AFFILIATE_UPLOAD } from "../../../lib/policy";
+import { ANIM_CAMERA, ANIM_EVENTS, ANIM_MOODS, ANIM_POSES, ANIM_SETS, isAnimLayout, LOOK_PRESETS } from "../../../lib/anim";
+import type { AnimDirection, AnimLayout } from "../../../lib/types";
+
+/** Arahan adegan animasi: set, kejadian, kamera, dan tokoh yang tampil. */
+function AnimEditor({ s, layout, chars, onChange }: { s: Scene; layout: AnimLayout; chars: Character[]; onChange: (a: AnimDirection) => void }) {
+  const a = s.anim!;
+  const who = [...chars.map((c) => ({ id: c.id, name: c.name })), ...Object.entries(LOOK_PRESETS).map(([id, l]) => ({ id, name: l.label }))];
+  const sel = (id: string, label: string, value: string, opts: { id: string; desc?: string }[], on: (v: string) => void) => (
+    <div className="field">
+      <label htmlFor={id} className="small">{label}</label>
+      <select id={id} className="select" value={value} onChange={(e) => on(e.target.value)}>
+        {opts.map((o) => <option key={o.id} value={o.id} title={o.desc}>{o.id}</option>)}
+      </select>
+    </div>
+  );
+  const setCast = (i: number, patch: Partial<AnimDirection["cast"][number]>) => onChange({ ...a, cast: a.cast.map((c, j) => (j === i ? { ...c, ...patch } : c)) });
+  const max = layout === "horor" ? 4 : layout === "stickman" ? 2 : 1;
+  return (
+    <div className="stack" style={{ gap: 10, padding: 14, borderRadius: 14, background: "var(--panel, rgba(0,0,0,0.04))" }}>
+      <span className="small" style={{ fontWeight: 700 }}>Arahan animasi</span>
+      <div className="grid2">
+        {sel(`as-${s.id}`, "Tempat", a.set, ANIM_SETS[layout], (v) => onChange({ ...a, set: v }))}
+        {sel(`ae-${s.id}`, "Kejadian", a.event || "tidak-ada", ANIM_EVENTS[layout], (v) => onChange({ ...a, event: v }))}
+        {sel(`ac-${s.id}`, "Kamera", a.camera || "dorong", ANIM_CAMERA.map((id) => ({ id })), (v) => onChange({ ...a, camera: v }))}
+        {layout === "horor" ? (
+          <div className="field">
+            <label htmlFor={`st-${s.id}`} className="small">Cap waktu (HARI | JAM | TEMPAT)</label>
+            <input id={`st-${s.id}`} className="input" value={a.stamp || ""} onChange={(e) => onChange({ ...a, stamp: e.target.value })} />
+          </div>
+        ) : null}
+      </div>
+      {a.cast.map((c, i) => (
+        <div key={i} className="row" style={{ gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+          {layout === "horor" ? sel(`aw-${s.id}-${i}`, `Tokoh ${i + 1}`, c.who, who.map((w) => ({ id: w.id, desc: w.name })), (v) => setCast(i, { who: v })) : null}
+          {sel(`ap-${s.id}-${i}`, "Pose", c.pose, ANIM_POSES[layout], (v) => setCast(i, { pose: v }))}
+          {layout !== "motivasi" ? sel(`am-${s.id}-${i}`, "Ekspresi", c.mood, ANIM_MOODS[layout], (v) => setCast(i, { mood: v })) : null}
+          {layout !== "motivasi" ? (
+            <label className="small" style={{ display: "flex", gap: 6, alignItems: "center", paddingBottom: 12 }}>
+              <input type="checkbox" checked={!!c.talk} onChange={(e) => setCast(i, { talk: e.target.checked })} /> bicara
+            </label>
+          ) : null}
+          {a.cast.length > 1 ? <button className="btn quiet sm" style={{ marginBottom: 6 }} onClick={() => onChange({ ...a, cast: a.cast.filter((_, j) => j !== i) })}>Hapus</button> : null}
+        </div>
+      ))}
+      {a.cast.length < max ? (
+        <button className="btn quiet sm" style={{ alignSelf: "flex-start" }} onClick={() => onChange({ ...a, cast: [...a.cast, { ...a.cast[a.cast.length - 1] }] })}>Tambah tokoh</button>
+      ) : null}
+    </div>
+  );
+}
 
 const BUSY = ["queued", "researching", "writing", "voicing", "imaging", "rendering"];
 const BASE_STAGES: { key: string; label: string }[] = [
@@ -160,7 +210,8 @@ function SceneRow({
             <textarea id={`it-${s.id}`} className="textarea" rows={3} value={s.visual.items.join("\n")} onChange={(e) => set({ visual: { ...s.visual, items: e.target.value.split("\n") } })} />
           </div>
         ) : null}
-        <p className="prompt" style={{ margin: 0 }}>Prompt gambar/klip 3D: {s.prompt}</p>
+        {s.anim && isAnimLayout(p.layout) ? <AnimEditor s={s} layout={p.layout} chars={chars} onChange={(anim) => set({ anim })} /> : (
+        <p className="prompt" style={{ margin: 0 }}>Prompt gambar/klip 3D: {s.prompt}</p>)}
         {s.visual.clip ? <p className="small muted" style={{ margin: 0 }}>Klip terpasang: {s.visual.clip}</p> : null}
         <div className="row">
           <button className="btn quiet sm" onClick={() => onRun("rewrite", s.id)} disabled={!!p.demo} title={p.demo ? "Butuh Claude CLI" : undefined}>

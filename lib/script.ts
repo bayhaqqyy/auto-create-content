@@ -1,5 +1,6 @@
-import type { Channel, Character, Product, Project, Scene, Template, VisualKind } from "./types";
+import type { AnimLayout, Channel, Character, Layout, Product, Project, Scene, Template, VisualKind } from "./types";
 import { ICONS } from "./icons";
+import { animPromptSection, cleanAnim, isAnimLayout, LOOK_PRESETS } from "./anim";
 
 export type ScriptResult = {
   title: string;
@@ -38,6 +39,24 @@ export const SCRIPT_SCHEMA = {
             required: ["kind", "items", "icon"],
           },
           prompt: { type: "string" },
+          anim: {
+            type: "object",
+            properties: {
+              set: { type: "string" },
+              cast: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: { who: { type: "string" }, pose: { type: "string" }, mood: { type: "string" }, talk: { type: "boolean" } },
+                  required: ["who", "pose", "mood", "talk"],
+                },
+              },
+              event: { type: "string" },
+              camera: { type: "string" },
+              stamp: { type: "string" },
+            },
+            required: ["set", "cast", "event", "camera"],
+          },
         },
         required: ["speaker", "tag", "text", "screenText", "keyword", "visual", "prompt"],
       },
@@ -50,7 +69,23 @@ export const SCRIPT_SCHEMA = {
   required: ["title", "titleOptions", "scenes", "caption", "hashtags", "coverText", "coverKeyword"],
 };
 
-export function buildPrompt(p: Project, t: Template, chars: Character[], facts: string[], ch: Channel) {
+/** Skema naskah; tampilan animasi mewajibkan field anim di tiap scene. */
+export function scriptSchema(layout: Layout) {
+  const base = JSON.parse(JSON.stringify(SCRIPT_SCHEMA));
+  if (isAnimLayout(layout)) base.properties.scenes.items.required.push("anim");
+  else delete base.properties.scenes.items.properties.anim;
+  return base;
+}
+
+/** Tokoh yang boleh dipilih AI untuk animasi: karakter channel + preset tokoh kartun. */
+export function animCast(chars: Character[]) {
+  return [
+    ...chars.map((c) => ({ id: c.id, desc: `${c.name}, ${c.role}` })),
+    ...Object.entries(LOOK_PRESETS).map(([id, l]) => ({ id, desc: l.label })),
+  ];
+}
+
+export function buildPrompt(p: Project, t: Template, chars: Character[], facts: string[], ch: Channel, layout: Layout = "kartu") {
   const cast = t.characters
     .map((id) => chars.find((c) => c.id === id))
     .filter(Boolean)
@@ -78,8 +113,9 @@ ${ch.voiceRules.map((r) => "- " + r).join("\n")}
 ATURAN TEMPLATE:
 ${t.rules.map((r) => "- " + r).join("\n")}
 
-FAKTA HASIL RISET (hanya pakai fakta dari sini untuk angka dan klaim):
-${facts.length ? facts.map((f) => "- " + f).join("\n") : "- (tidak ada)"}
+${t.kind === "cerita" ? CERITA_RULES : `FAKTA HASIL RISET (hanya pakai fakta dari sini untuk angka dan klaim):
+${facts.length ? facts.map((f) => "- " + f).join("\n") : "- (tidak ada)"}`}
+${isAnimLayout(layout) ? "\n" + animPromptSection(layout as AnimLayout, animCast(chars)) + "\n" : ""}
 
 ISI TIAP SCENE:
 - text: kalimat yang diucapkan karakter (tanpa nama karakter di depan, tanpa emoji).
@@ -92,7 +128,7 @@ ISI TIAP SCENE:
   chat (2-4 item format "Pengirim: pesan", untuk percakapan WhatsApp/DM), notification (items=[aplikasi, judul, isi]),
   call (items=[nama penelepon, status mis. "memanggil…"]). Jangan pakai number kalau tidak ada angka di fakta riset. Isi chat/notifikasi boleh fiksi tapi tidak boleh berisi data pribadi asli, nomor asli, atau link.
 - visual.icon: satu ikon yang paling mewakili isi scene.
-- prompt: deskripsi adegan bahasa Inggris untuk gambar/klip 3D vertikal 9:16 yang nyambung dengan kalimat scene. Sebut nama karakter yang tampil (${t.characters.join(", ")}) dan apa yang mereka lakukan, ekspresi, latar, dan properti. Sisakan ruang kosong di sepertiga atas untuk teks. Tanpa teks, huruf, atau logo di gambar.
+- prompt: ${isAnimLayout(layout) ? "cukup satu kalimat bahasa Inggris yang meringkas adegan (video ini digambar sebagai animasi 2D, bukan gambar AI)." : "deskripsi adegan bahasa Inggris"} untuk gambar/klip 3D vertikal 9:16 yang nyambung dengan kalimat scene. Sebut nama karakter yang tampil (${t.characters.join(", ")}) dan apa yang mereka lakukan, ekspresi, latar, dan properti. Sisakan ruang kosong di sepertiga atas untuk teks. Tanpa teks, huruf, atau logo di gambar.
 
 LAINNYA:
 - title: judul video yang bikin penasaran, maksimal 6 kata. titleOptions: 3 variasi termasuk title.
@@ -103,8 +139,33 @@ Balas hanya JSON sesuai skema.`;
 }
 
 
+const CERITA_RULES = `JENIS KONTEN: CERITA FIKSI / MOTIVASI, TANPA RISET.
+- Jangan menyebut angka, statistik, nama orang nyata, merek, atau kejadian nyata sebagai fakta.
+- Jangan menaruh kutipan di mulut tokoh terkenal. Kalimat bijak ditulis sebagai kalimat sendiri atau "pepatah".
+- Cerita harus utuh dan nyambung: tiap scene adalah akibat dari scene sebelumnya, tokoh dan tempat konsisten,
+  setiap kejutan sudah diberi petunjuk sebelumnya, dan penutup menjawab atau menajamkan pertanyaan di awal.
+- Legenda atau budaya daerah ditampilkan dengan hormat, bukan bahan ejekan.`;
+
+/** Prompt pemeriksa naskah cerita: cek alur, konsistensi, dan kecocokan arahan animasi, lalu perbaiki. */
+export function reviewPrompt(base: string, draft: ScriptResult) {
+  return `${base}
+
+DRAF NASKAH (JSON):
+${JSON.stringify({ ...draft, titleOptions: undefined }, null, 1)}
+
+TUGAS: periksa draf di atas seperti editor naskah, lalu kirim versi yang sudah diperbaiki dengan skema yang sama.
+Cek satu per satu dan perbaiki kalau gagal:
+1. Hook detik pertama langsung menegangkan/mengejutkan, tanpa sapaan.
+2. Alur sebab-akibat: tiap scene nyambung dengan scene sebelumnya, tidak ada lompatan yang membingungkan.
+3. Tokoh, pakaian, tempat, dan jam (stamp) konsisten dan maju dengan masuk akal.
+4. Arahan animasi cocok dengan kalimat scene (yang bicara talk=true, ekspresi sesuai emosi, set sesuai tempat).
+5. Panjang kalimat sesuai durasi scene, bahasa natural seperti orang bercerita.
+6. Penutup tuntas atau berupa pertanyaan pancingan komentar yang jelas; tidak menjanjikan "part 2".
+Balas hanya JSON.`;
+}
+
 /** Normalisasi hasil LLM supaya aman dipakai renderer. */
-export function sanitizeScript(r: ScriptResult, t: Template, productIds: string[] = []): ScriptResult {
+export function sanitizeScript(r: ScriptResult, t: Template, productIds: string[] = [], layout: Layout = "kartu", castIds: string[] = []): ScriptResult {
   const allowed = new Set(t.characters);
   const scenes = (r.scenes || []).slice(0, 12).map((s, i) => {
     const speaker = allowed.has(s.speaker) ? s.speaker : t.scenes[i]?.speaker || t.characters[0];
@@ -117,14 +178,18 @@ export function sanitizeScript(r: ScriptResult, t: Template, productIds: string[
     if ((kind === "notification" || kind === "call") && items.length < 2) kind = "statement";
     const icon = (ICONS as readonly string[]).includes(s.visual?.icon || "") ? s.visual.icon : "question";
     const keyword = s.text.toLowerCase().includes((s.keyword || "").toLowerCase()) ? s.keyword : "";
-    return { ...s, tag: (s.tag || "").toUpperCase().slice(0, 24), speaker, keyword, visual: { kind, items, icon } };
+    const anim = isAnimLayout(layout) ? cleanAnim(s.anim, layout, castIds) : undefined;
+    return { ...s, tag: (s.tag || "").toUpperCase().slice(0, 24), speaker, keyword, visual: { kind, items, icon }, anim };
   });
   const hashtags = (r.hashtags || []).map((h) => (h.startsWith("#") ? h : "#" + h).replace(/\s+/g, ""));
   return { ...r, scenes, hashtags };
 }
 
 /** Naskah contoh untuk mode demo (tanpa API key). */
-export function demoScript(channelId = "kodekepo"): ScriptResult {
+export function demoScript(channelId = "kodekepo", layout: Layout = "kartu"): ScriptResult {
+  if (layout === "horor") return demoHoror();
+  if (layout === "stickman") return demoStick();
+  if (layout === "motivasi") return demoMotivasi();
   if (channelId === "petualangan-kepi") return demoKids();
   return {
     title: "OTP Itu Kunci Rumah Lo!",
@@ -163,3 +228,92 @@ function demoKids(): ScriptResult {
   };
 }
 
+
+type DemoScene = ScriptResult["scenes"][number];
+const sc = (speaker: string, tag: string, text: string, screenText: string, keyword: string, anim: DemoScene["anim"], items: string[] = []): DemoScene => ({
+  speaker, tag, text, screenText, keyword, anim, prompt: "", visual: { kind: items.length ? "steps" : "statement", items, icon: "question" },
+});
+
+/** Contoh horor kartun: serial KKN, satu pencerita orang pertama. */
+function demoHoror(): ScriptResult {
+  const P = "pencerita";
+  return {
+    title: "KKN: Jangan Buka Jendela",
+    titleOptions: ["KKN: Jangan Buka Jendela", "Yang Ngetuk Jendela Posko", "Satu Larangan di Desa KKN"],
+    scenes: [
+      sc(P, "MALAM ITU", "Jam dua belas malam, ada yang ngetuk jendela kamar posko. Padahal kamar kami di atas rumah panggung.", "JANGAN BUKA|JENDELANYA", "jendela",
+        { set: "kamar", cast: [{ who: "pemuda", pose: "peluk", mood: "kaget", talk: false }], event: "mata-merah", camera: "dorong", stamp: "SELASA | 00.12 | KAMAR POSKO" }),
+      sc(P, "SEBELUMNYA", "Enam jam sebelumnya, kami bertiga baru sampai. Naik klotok nyusurin sungai, Bagas sibuk nyari sinyal.", "6 JAM|SEBELUMNYA", "sinyal",
+        { set: "sungai", cast: [{ who: "pemuda-kaos", pose: "hp", mood: "tenang", talk: false }, { who: "pemuda", pose: "duduk", mood: "tenang", talk: false }, { who: "pemudi-hijab", pose: "duduk", mood: "cemas", talk: false }], event: "tidak-ada", camera: "dorong", stamp: "SENIN | 17.40 | SUNGAI" }),
+      sc(P, "LARANGAN", "Pak Amang, kepala desa, nyambut kami di posko. Pesannya cuma satu: kalau malam ada yang ngetuk jendela, jangan dibuka.", "SATU|LARANGAN", "jangan",
+        { set: "posko", cast: [{ who: "bapak-tua", pose: "tunjuk", mood: "tegas", talk: true }, { who: "pemudi-hijab", pose: "ransel", mood: "cemas", talk: false }, { who: "pemuda", pose: "ransel", mood: "tenang", talk: false }, { who: "pemuda-kaos", pose: "ransel", mood: "curiga", talk: false }], event: "tidak-ada", camera: "dorong", stamp: "SENIN | 18.30 | POSKO KKN" }),
+      sc(P, "BISIKAN", "Di warung, Acil Ijah bisik ke Nadia. Katanya yang ngetuk itu bukan orang. Dia cuma bisa masuk kalau dibukain.", "YANG NGETUK|BUKAN ORANG", "dibukain",
+        { set: "warung", cast: [{ who: "ibu-tua", pose: "bisik", mood: "seram", talk: true }, { who: "pemudi-hijab", pose: "minum", mood: "kaget", talk: false }], event: "tidak-ada", camera: "ikuti", stamp: "SENIN | 19.15 | WARUNG ACIL" }),
+      sc(P, "CAHAYA", "Malam berikutnya, dari celah jendela, aku lihat cahaya merah melayang di atas pohon. Pelan-pelan, makin dekat.", "CAHAYA|MERAH", "merah",
+        { set: "kamar", cast: [{ who: "pemuda", pose: "hp", mood: "cemas", talk: false }], event: "lampu-merah", camera: "dorong", stamp: "SELASA | 23.58 | KAMAR POSKO" }),
+      sc(P, "TOK TOK", "Tok. Tok. Terus ada suara Bagas dari luar: buka, ini aku. Padahal Bagas lagi tidur di sebelahku.", "TOK! TOK!|SUARA BAGAS?", "tidur",
+        { set: "kamar", cast: [{ who: "pemuda", pose: "peluk", mood: "kaget", talk: false }, { who: "pemuda-kaos", pose: "tidur", mood: "tenang", talk: false }], event: "ketukan", camera: "guncang", stamp: "SELASA | 00.12 | KAMAR POSKO" }),
+      sc(P, "PILIH", "Kalau kamu di posisiku, kamu buka jendelanya atau nggak? Tulis pilihanmu di komentar.", "KAMU|PILIH MANA?", "komentar",
+        { set: "kamar", cast: [{ who: "pemuda", pose: "dorong", mood: "kaget", talk: false }], event: "lampu-mati", camera: "diam", stamp: "SELASA | 00.13 | KAMAR POSKO" },
+        ["Buka jendelanya", "Bangunin Bagas", "Pura-pura tidur"]),
+    ],
+    caption: "Satu larangan di desa KKN: kalau ada yang ngetuk jendela malam-malam, jangan dibuka. Kamu pilih yang mana? Cerita ini fiksi.",
+    hashtags: ["#fyp", "#ceritahoror", "#kkn", "#horor", "#viral"],
+    coverText: "Jangan buka jendelanya",
+    coverKeyword: "jendelanya",
+  };
+}
+
+/** Contoh stickman ekspresif: mitos HP basah dimasukkan ke beras. Fakta dari halaman dukungan Apple "If you see a liquid-detection alert on your iPhone". */
+function demoStick(): ScriptResult {
+  const N = "narator";
+  return {
+    title: "HP Basah Masukin Beras?",
+    titleOptions: ["HP Basah Masukin Beras?", "Mitos Beras Buat HP Basah", "Jangan Rendam HP di Beras"],
+    scenes: [
+      sc(N, "WADUH", "HP lo nyemplung ke ember. Refleks pertama orang Indonesia: cari beras.", "HP NYEMPLUNG|KE AIR!", "beras",
+        { set: "kamar", cast: [{ who: "pemuda", pose: "kaget", mood: "panik", talk: false }], event: "kaget", camera: "guncang" }),
+      sc(N, "KATANYA", "Katanya beras bisa nyedot airnya. Rendam semalam, besok beres.", "MASUKIN|KE BERAS?", "semalam",
+        { set: "dapur", cast: [{ who: "pemuda", pose: "jempol", mood: "bangga", talk: false }], event: "tidak-ada", camera: "dorong" }),
+      sc(N, "FAKTANYA", "Apple sendiri bilang jangan. Butiran kecil beras malah bisa masuk ke lubang charger dan bikin rusak.", "INI|MITOS", "jangan",
+        { set: "dapur", cast: [{ who: "pemuda", pose: "tepok-jidat", mood: "bingung", talk: false }], event: "salah", camera: "diam" }),
+      sc(N, "YANG BENER", "Yang bener: ketuk pelan HP ke telapak tangan, lubang charger menghadap ke bawah, biar airnya keluar.", "YANG BENER|GIMANA?", "ketuk",
+        { set: "kelas", cast: [{ who: "pemuda", pose: "mikir", mood: "senang", talk: false }], event: "ide", camera: "dorong" }),
+      sc(N, "TERUS", "Terus taruh di tempat kering yang ada aliran udaranya. Jangan pakai hair dryer, dan jangan dicas dulu selama masih basah.", "TARUH DI|TEMPAT KERING", "kering",
+        { set: "taman", cast: [{ who: "pemuda", pose: "jempol", mood: "senang", talk: false }], event: "benar", camera: "dorong" }),
+      sc(N, "KOMEN", "Ngaku deh, lo pernah rendam HP di beras? Jujur di komentar.", "PERNAH RENDAM|HP DI BERAS?", "komentar",
+        { set: "panggung", cast: [{ who: "pemuda", pose: "sorak", mood: "bangga", talk: false }], event: "menang", camera: "tarik" }),
+    ],
+    caption: "HP basah jangan dimasukin beras, Apple sendiri yang bilang. Lo pernah? Jujur di komentar.",
+    hashtags: ["#fyp", "#tipshp", "#hpbasah", "#mitosvsfakta", "#viral"],
+    coverText: "HP basah masukin beras?",
+    coverKeyword: "beras",
+  };
+}
+
+/** Contoh motivasi siluet: jatuh, istirahat, bangkit, naik selangkah demi selangkah. */
+function demoMotivasi(): ScriptResult {
+  const P = "pencerita";
+  return {
+    title: "Jatuh 7 Kali, Bangun 8 Kali",
+    titleOptions: ["Jatuh 7 Kali, Bangun 8 Kali", "Gagal Lagi? Baca Ini", "Satu Langkah Lagi"],
+    scenes: [
+      sc(P, "GAGAL", "Gagal lagi? Rasanya kayak jatuh di tempat yang sama, berkali-kali.", "GAGAL|LAGI?", "jatuh",
+        { set: "hujan", cast: [{ who: "pemuda", pose: "jatuh", mood: "siluet", talk: false }], event: "jatuh", camera: "dorong" }),
+      sc(P, "ISTIRAHAT", "Nggak apa-apa. Capek itu wajar. Duduk dulu, tarik napas.", "NGGAK APA-APA.|ISTIRAHAT DULU", "wajar",
+        { set: "hujan", cast: [{ who: "pemuda", pose: "duduk", mood: "siluet", talk: false }], event: "tidak-ada", camera: "dorong" }),
+      sc(P, "BANGKIT", "Tapi jangan kelamaan. Yang bikin beda bukan seberapa sering kamu jatuh, tapi mau bangun lagi atau nggak.", "TAPI JANGAN|BERHENTI", "bangun",
+        { set: "hujan", cast: [{ who: "pemuda", pose: "bangkit", mood: "siluet", talk: false }], event: "hujan-reda", camera: "diam" }),
+      sc(P, "LANGKAH", "Mulai dari satu langkah kecil. Hari ini satu, besok satu lagi. Pelan nggak apa-apa, asal nggak berhenti.", "SATU|LANGKAH", "langkah",
+        { set: "tangga", cast: [{ who: "pemuda", pose: "naik", mood: "siluet", talk: false }], event: "langkah", camera: "ikuti" }),
+      sc(P, "PUNCAK", "Kata pepatah Jepang: jatuh tujuh kali, bangun delapan kali.", "JATUH 7 KALI,|BANGUN 8 KALI", "delapan",
+        { set: "tangga", cast: [{ who: "pemuda", pose: "sorak", mood: "siluet", talk: false }], event: "matahari", camera: "tarik" }),
+      sc(P, "KAMU", "Kamu lagi di anak tangga ke berapa sekarang? Tulis di komentar, biar kita saling semangatin.", "ANAK TANGGA|KE BERAPA?", "komentar",
+        { set: "puncak", cast: [{ who: "pemuda", pose: "berdiri", mood: "siluet", talk: false }], event: "matahari", camera: "tarik" }),
+    ],
+    caption: "Jatuh itu wajar, yang penting bangun lagi. Kamu lagi di anak tangga ke berapa?",
+    hashtags: ["#fyp", "#motivasi", "#semangat", "#quotes", "#viral"],
+    coverText: "Jatuh 7 kali, bangun 8 kali",
+    coverKeyword: "bangun",
+  };
+}

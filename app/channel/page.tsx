@@ -191,6 +191,8 @@ export default function BrandKit() {
                 <select id="bp" className="select" value={ch.bgmPreset} onChange={(e) => set({ bgmPreset: e.target.value as Channel["bgmPreset"] })}>
                   <option value="tech">Tech (tenang, berdenyut)</option>
                   <option value="ceria">Ceria (untuk anak & santai)</option>
+                  <option value="horor">Horor (mencekam, pelan)</option>
+                  <option value="motivasi">Motivasi (hangat, naik pelan)</option>
                   <option value="none">Tanpa musik</option>
                 </select>
               </div>

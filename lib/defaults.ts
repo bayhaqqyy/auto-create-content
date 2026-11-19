@@ -238,6 +238,9 @@ export const LAYOUTS: { id: Layout; name: string; desc: string }[] = [
   { id: "kartu", name: "Kartu gelap", desc: "Latar gelap brand, judul bab, kartu motion graphic. Cocok untuk explainer & berita." },
   { id: "layar", name: "Layar HP terang", desc: "Latar terang penuh dengan HP besar di tengah. Cocok untuk tips yang bisa langsung dicek penonton." },
   { id: "teks", name: "Teks besar", desc: "Kalimat besar di tengah layar, kata per kata. Cocok untuk daftar, fakta cepat, dan cerita POV." },
+  { id: "horor", name: "Horor kartun", desc: "Kartun 2D bergaris tebal: tokoh berekspresi, set kampung malam hari, cap waktu, kotak voting di akhir. Untuk serial cerita seram." },
+  { id: "stickman", name: "Stickman ekspresif", desc: "Stickman dengan ekspresi besar, properti, set berwarna, dan efek kaget. Cocok untuk mitos vs fakta dan tips lucu." },
+  { id: "motivasi", name: "Motivasi siluet", desc: "Siluet sinematik dari hujan ke matahari terbit, tangga, dan puncak. Untuk konten motivasi singkat." },
 ];
 
 /* ---------------- galeri template (bisa dipakai channel mana pun) ---------------- */
@@ -257,7 +260,80 @@ const HOOK_RULES = [
   "Detik 5: langsung masuk isi, tanpa pengantar.",
 ];
 
+const STORY_RULES = [
+  "Cerita fiksi utuh: tiap scene adalah akibat scene sebelumnya, tokoh dan tempat konsisten, petunjuk ditanam sebelum kejutan.",
+  "Jangan menyebut kejadian, orang, atau desa nyata sebagai fakta. Legenda daerah diceritakan dengan hormat.",
+];
+
 export const TEMPLATE_LIBRARY: TemplatePreset[] = [
+  {
+    id: "horor-kartun",
+    name: "Horor Kartun Serial",
+    description: "Cerita seram satu pencerita bergaya kartun 2D: cold open, mundur waktu, larangan, teror, lalu voting penonton.",
+    example: "KKN: jangan buka jendela kalau ada yang ngetuk",
+    minSec: 50,
+    maxSec: 75,
+    layout: "horor",
+    kind: "cerita",
+    scenes: [
+      { speaker: "utama", purpose: "Cold open: momen paling seram dari puncak cerita, sebut jam dan tempatnya", seconds: 6 },
+      { speaker: "utama", purpose: "Mundur waktu (\"beberapa jam sebelumnya\"): kenalkan tokoh dan perjalanan ke lokasi", seconds: 8 },
+      { speaker: "utama", purpose: "Warga lokal memberi satu larangan yang jelas", seconds: 9 },
+      { speaker: "utama", purpose: "Petunjuk kedua: warga lain membisikkan alasan larangan itu", seconds: 9 },
+      { speaker: "utama", purpose: "Tanda pertama muncul malam hari", seconds: 9 },
+      { speaker: "utama", purpose: "Puncak: kejadian di cold open terulang lengkap dengan satu kejutan baru", seconds: 9 },
+      { speaker: "utama", purpose: "Penutup: tanya penonton akan memilih apa (2-3 pilihan) dan minta jawab di komentar", seconds: 6 },
+    ],
+    rules: [
+      "Pencerita orang pertama (\"aku\"). Tokoh lain disebut namanya dan tampil sebagai tokoh kartun.",
+      "Cold open dan puncak adalah momen yang sama; jam di stamp harus cocok.",
+      "Scene terakhir: visual.kind steps, items berisi 2-3 pilihan voting yang pendek.",
+      ...STORY_RULES,
+      ...COMMON_RULES.slice(0, 2),
+    ],
+  },
+  {
+    id: "stickman-mitos",
+    name: "Stickman Mitos vs Fakta",
+    description: "Stickman ekspresif memerankan kebiasaan yang salah, lalu stempel MITOS dan cara yang benar.",
+    example: "HP basah dimasukin ke beras?",
+    minSec: 35,
+    maxSec: 55,
+    layout: "stickman",
+    scenes: [
+      { speaker: "utama", purpose: "Hook: kejadian sehari-hari yang bikin panik, langsung di detik pertama", seconds: 4 },
+      { speaker: "utama", purpose: "Kebiasaan atau anggapan yang umum dilakukan orang", seconds: 6 },
+      { speaker: "utama", purpose: "Faktanya dari sumber resmi (event salah)", seconds: 8 },
+      { speaker: "utama", purpose: "Cara yang benar, langkah pertama (event ide)", seconds: 8 },
+      { speaker: "utama", purpose: "Langkah berikutnya dan yang harus dihindari (event benar)", seconds: 8 },
+      { speaker: "utama", purpose: "Penutup: pertanyaan pancingan komentar (set panggung, event menang)", seconds: 5 },
+    ],
+    rules: [...HOOK_RULES, "Sebut sumber resmi faktanya di kalimat (mis. \"Apple sendiri bilang\").", ...COMMON_RULES],
+  },
+  {
+    id: "motivasi-siluet",
+    name: "Motivasi Siluet",
+    description: "Pesan motivasi singkat: jatuh, istirahat, bangkit, satu langkah kecil, kalimat kunci, pertanyaan ke penonton.",
+    example: "Gagal berkali-kali? Jatuh 7 kali, bangun 8 kali",
+    minSec: 30,
+    maxSec: 50,
+    layout: "motivasi",
+    kind: "cerita",
+    scenes: [
+      { speaker: "utama", purpose: "Hook: rasa gagal atau lelah yang relate (pose jatuh, set hujan)", seconds: 4 },
+      { speaker: "utama", purpose: "Validasi: wajar capek, boleh istirahat (pose duduk)", seconds: 6 },
+      { speaker: "utama", purpose: "Titik balik: alasan untuk bangkit (pose bangkit, event hujan-reda)", seconds: 7 },
+      { speaker: "utama", purpose: "Satu langkah kecil yang konkret bisa dilakukan hari ini (set tangga, pose naik, event langkah)", seconds: 8 },
+      { speaker: "utama", purpose: "Kalimat kunci yang layak di-screenshot (pose sorak, event matahari)", seconds: 6 },
+      { speaker: "utama", purpose: "Penutup: pertanyaan ke penonton soal kondisinya sekarang", seconds: 5 },
+    ],
+    rules: [
+      "Bicara ke \"kamu\" dengan hangat, kalimat pendek, tanpa menggurui dan tanpa klise berlebihan.",
+      "Kalimat bijak ditulis sebagai kalimat sendiri atau \"pepatah\", jangan dikaitkan ke tokoh terkenal.",
+      "Jangan menjanjikan kesuksesan, uang, atau hasil tertentu.",
+      ...COMMON_RULES.slice(0, 2),
+    ],
+  },
   {
     id: "cek-sekarang",
     name: "Cek Sekarang",
@@ -389,7 +465,8 @@ export const TEMPLATE_LIBRARY: TemplatePreset[] = [
 /** Salin preset galeri ke channel: peran dipetakan ke karakter channel itu. */
 export function presetToTemplate(preset: TemplatePreset, channelId: string, chars: Character[], id: string): Template {
   const duo = chars.filter((c) => c.group === "duo");
-  const solo = chars.find((c) => c.group === "lain") || chars[0];
+  const storyteller = preset.kind === "cerita" ? chars.find((c) => /cerita/i.test(c.id + " " + c.name)) : undefined;
+  const solo = storyteller || chars.find((c) => c.group === "lain") || chars[0];
   const map: Record<PresetRole, string> = {
     utama: (solo || chars[0]).id,
     penanya: (duo[0] || chars[0]).id,

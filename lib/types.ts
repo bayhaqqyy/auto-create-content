@@ -1,5 +1,40 @@
-/** Tampilan video: "kartu" = kartu gelap motion graphic; "layar" = latar terang penuh dengan HP besar (gaya EP.031/032); "teks" = teks besar di tengah ala caption. */
-export type Layout = "kartu" | "layar" | "teks";
+/**
+ * Tampilan video: "kartu" = kartu gelap motion graphic; "layar" = latar terang penuh dengan HP besar (gaya EP.032);
+ * "teks" = teks besar di tengah ala caption;
+ * "horor" = kartun 2D horor; "stickman" = stickman ekspresif; "motivasi" = stickman siluet sinematik.
+ */
+export type Layout = "kartu" | "layar" | "teks" | AnimLayout;
+export type AnimLayout = "horor" | "stickman" | "motivasi";
+
+/** Arahan adegan untuk tampilan animasi: set, tokoh, kejadian, dan kamera. Daftar pilihannya di lib/anim.ts. */
+export type AnimDirection = {
+  set: string;
+  cast: { who: string; pose: string; mood: string; talk?: boolean }[];
+  event?: string;
+  camera?: string;
+  /** horor: keterangan pojok kiri atas "HARI | JAM | TEMPAT" */
+  stamp?: string;
+};
+
+/** Tampilan tokoh kartun 2D (horor). */
+export type Look2D = {
+  skin: string;
+  hair: "short" | "curly" | "bun" | "hijab" | "peci";
+  hairCol: string;
+  hijabCol?: string;
+  top: string;
+  jacket?: string;
+  topPattern?: "batik";
+  sleeve: "long" | "short";
+  bottom: "pants" | "skirt" | "sarung";
+  bottomCol: string;
+  shoe: string;
+  glasses?: boolean;
+  mustache?: string;
+  wrinkles?: boolean;
+  thin?: boolean;
+  neckCloth?: string;
+};
 
 export type VisualKind = "question" | "statement" | "steps" | "compare" | "number" | "chat" | "notification" | "call" | "product" | "proscons" | "clip";
 
@@ -29,6 +64,8 @@ export type Scene = {
   visual: Visual;
   /** prompt gambar/klip 3D untuk scene ini (bahasa Inggris) */
   prompt: string;
+  /** arahan adegan untuk tampilan animasi (horor/stickman/motivasi) */
+  anim?: AnimDirection;
   /** gambar latar 3D hasil generate atau upload */
   image?: string;
   audio?: string;
@@ -110,8 +147,8 @@ export type Template = {
   layout?: Layout;
   /** id preset galeri asal template ini, kalau disalin dari galeri */
   preset?: string;
-  /** "affiliate" memakai data produk, bukan riset web */
-  kind?: "edu" | "affiliate";
+  /** "affiliate" memakai data produk; "cerita" = fiksi/motivasi tanpa riset web (tidak boleh ada klaim fakta) */
+  kind?: "edu" | "affiliate" | "cerita";
   /** jumlah produk yang dibahas (affiliate) */
   productCount?: number;
 };
@@ -154,6 +191,8 @@ export type Character = {
   color: string;
   textColor: string;
   group: "duo" | "lain";
+  /** tampilan tokoh di animasi kartun 2D; kosong = pakai preset terdekat */
+  look2d?: Look2D;
 };
 
 export type Channel = {
@@ -182,7 +221,7 @@ export type Channel = {
   showHeader: boolean;
   /** teks pill ajakan follow di outro */
   outroFollow: string;
-  bgmPreset: "tech" | "ceria" | "none";
+  bgmPreset: "tech" | "ceria" | "horor" | "motivasi" | "none";
   /** latar grid tipis seperti storyboard brand */
   grid: boolean;
   bgmVolume: number;

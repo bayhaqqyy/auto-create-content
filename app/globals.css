@@ -244,6 +244,18 @@ table.t tr:last-child td { border-bottom: 0; }
 .lt-teks { background: #0C1424; }
 .lt-teks i { left: 8px; right: 8px; top: 22px; height: 10px; background: #F6F8FC; border-radius: 3px; }
 .lt-teks b { left: 12px; right: 12px; top: 36px; height: 10px; background: #A4FF19; border-radius: 3px; }
+.lt-horor { background: linear-gradient(180deg, #2E2A55, #6E5238); }
+.lt-horor i { left: 6px; right: 6px; top: 10px; height: 8px; background: #FFD23F; border-radius: 2px; }
+.lt-horor b { left: 16px; top: 44px; width: 22px; height: 22px; background: #C98A5E; border: 2px solid #2B2522; border-radius: 50%; }
+.lt-horor u { left: 14px; top: 66px; width: 26px; height: 22px; background: #2F6B57; border: 2px solid #2B2522; border-radius: 6px 6px 0 0; }
+.lt-stickman { background: #FFD86B; }
+.lt-stickman i { left: 6px; right: 6px; top: 10px; height: 8px; background: #E5484D; border-radius: 2px; }
+.lt-stickman b { left: 17px; top: 36px; width: 20px; height: 20px; background: #fff; border: 3px solid #141414; border-radius: 50%; }
+.lt-stickman u { left: 25px; top: 58px; width: 4px; height: 28px; background: #141414; border-radius: 2px; }
+.lt-motivasi { background: linear-gradient(180deg, #3B2F6B, #F0785A 60%, #FFD27A); }
+.lt-motivasi i { left: 6px; right: 6px; top: 10px; height: 8px; background: #FFC94A; border-radius: 2px; }
+.lt-motivasi b { left: 20px; top: 46px; width: 14px; height: 14px; background: #121218; border-radius: 50%; }
+.lt-motivasi u { left: 0; right: 0; bottom: 0; height: 26px; background: #121218; clip-path: polygon(0 100%, 0 70%, 30% 70%, 30% 45%, 55% 45%, 55% 20%, 80% 20%, 80% 0, 100% 0, 100% 100%); }
 .lt-teks u { left: 10px; right: 10px; bottom: 20px; height: 6px; background: #AEBBD0; border-radius: 3px; }
 
 /* galeri template */

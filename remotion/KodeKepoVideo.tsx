@@ -18,7 +18,9 @@ import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { slide } from "@remotion/transitions/slide";
 import { wipe } from "@remotion/transitions/wipe";
 import { fade } from "@remotion/transitions/fade";
-import type { Scene } from "../lib/types";
+import type { AnimLayout, Look2D, Scene } from "../lib/types";
+import { isAnimLayout } from "../lib/anim";
+import { AnimScene } from "./anim/AnimScene";
 import type { Cue } from "../lib/subtitle";
 import { Icon } from "./Icons";
 
@@ -32,8 +34,8 @@ export type Theme = {
   grid: boolean;
   bgmVolume: number;
   font: "jakarta" | "archivo";
-  /** "kartu" (bawaan), "layar" = latar terang dengan HP besar, "teks" = teks besar di tengah */
-  layout?: "kartu" | "layar" | "teks";
+  /** "kartu" (bawaan), "layar" = latar terang dengan HP besar, "teks" = teks besar di tengah, atau tampilan animasi */
+  layout?: "kartu" | "layar" | "teks" | AnimLayout;
   /** header nama channel + garis progres di atas (bawaan mati: tertutup kolom cari TikTok) */
   showHeader?: boolean;
 };
@@ -51,6 +53,9 @@ export type VideoProps = {
   products?: Record<string, ProductInfo>;
   /** teks ajakan di scene terakhir konten affiliate, mis. "Cek keranjang kuning" */
   affiliateCta?: string;
+  /** tampilan animasi: tokoh kartun per id, dan judul video yang tampil tetap di atas (horor) */
+  looks?: Record<string, Look2D>;
+  videoTitle?: string;
 };
 
 export type ProductInfo = { name: string; brand: string; price: string; platform: string; photo?: string };
@@ -71,6 +76,8 @@ function useFonts() {
     const fonts = [
       new FontFace("Plus Jakarta Sans", `url(${staticFile("fonts/PlusJakartaSans.ttf")})`, { weight: "200 800" }),
       new FontFace("Archivo", `url(${staticFile("fonts/Archivo.ttf")})`, { weight: "100 900", stretch: "62% 125%" }),
+      new FontFace("Anton", `url(${staticFile("fonts/Anton.woff2")})`, { weight: "400" }),
+      new FontFace("Bungee", `url(${staticFile("fonts/Bungee-Regular.ttf")})`, { weight: "400" }),
     ];
     Promise.all(fonts.map((f) => f.load().then((ff) => document.fonts.add(ff)).catch(() => null))).then(() => continueRender(handle));
   }, [handle]);
@@ -503,7 +510,7 @@ const Chapter: React.FC<{ scene: Scene; theme: Theme; index: number }> = ({ scen
   );
 };
 
-type SceneProps = { scene: Scene; index: number; theme: Theme; products?: Record<string, ProductInfo>; cta?: string };
+type SceneProps = { scene: Scene; index: number; theme: Theme; products?: Record<string, ProductInfo>; cta?: string; total?: number; looks?: Record<string, Look2D>; videoTitle?: string; episode?: string };
 
 const SceneKartu: React.FC<SceneProps> = ({ scene, index, theme, products, cta }) => {
   const ctaIn = useSpring(14, 11);
@@ -644,6 +651,8 @@ const SceneTeks: React.FC<SceneProps> = ({ scene, index, theme, products, cta })
 
 const SceneView: React.FC<SceneProps> = (props) => {
   const l = layoutOf(props.theme);
+  if (isAnimLayout(l))
+    return <AnimScene scene={props.scene} index={props.index} total={props.total || 1} layout={l} looks={props.looks || {}} title={props.videoTitle || ""} episode={props.episode} />;
   if (l === "layar") return <SceneLayar {...props} />;
   if (l === "teks") return <SceneTeks {...props} />;
   return <SceneKartu {...props} />;
@@ -733,6 +742,49 @@ const Subtitles: React.FC<{ cues: Cue[]; scenes: Scene[]; theme: Theme; characte
   let acc = 0;
   const k = cue.keyword ? norm(cue.keyword) : "";
   const layout = layoutOf(theme);
+  if (layout === "horor") {
+    // gaya serial horor: kotak putih, nama penutur berwarna, di atas kaki tokoh
+    return (
+      <div style={{ position: "absolute", left: 60, right: 60, top: 1390, display: "flex", justifyContent: "center", fontFamily: fontFamily(theme) }}>
+        <div style={{ background: "rgba(255,255,255,0.96)", borderRadius: 18, padding: "14px 28px 18px", fontSize: 40, lineHeight: 1.25, color: "#2B2522", textAlign: "center", maxWidth: 940 }}>
+          {who && who.id !== "narator" && who.id !== "pencerita" ? <span style={{ fontWeight: 800, color: lum(who.color) > 0.6 ? "#8E4C88" : who.color }}>{who.name.toUpperCase()}: </span> : null}
+          {words.map((w, i) => {
+            const startFrac = acc / total;
+            acc += w.length + 1;
+            const said = progress >= startFrac;
+            const isK = k && norm(w) === k;
+            return (
+              <span key={i} style={{ fontWeight: isK ? 800 : 600, color: isK ? "#C2271F" : "#2B2522", opacity: said ? 1 : 0.4 }}>
+                {w}{" "}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+  if (layout === "stickman" || layout === "motivasi") {
+    const gold = layout === "motivasi" ? "#FFC94A" : "#E5484D";
+    return (
+      <div style={{ position: "absolute", left: X, right: X, bottom: 360, fontFamily: fontFamily(theme), textAlign: "center" }}>
+        <div style={{ display: "inline-block", background: layout === "stickman" ? "rgba(255,255,255,0.94)" : "rgba(10,10,20,0.55)", borderRadius: 26, padding: "16px 28px 20px", border: layout === "stickman" ? "6px solid #141414" : "none" }}>
+          <div style={{ fontWeight: 800, fontSize: 50, lineHeight: 1.2 }}>
+            {words.map((w, i) => {
+              const startFrac = acc / total;
+              acc += w.length + 1;
+              const said = progress >= startFrac;
+              const isK = k && norm(w) === k;
+              return (
+                <span key={i} style={{ color: isK ? gold : layout === "stickman" ? "#141414" : "#FFFFFF", opacity: said ? 1 : 0.4 }}>
+                  {w}{" "}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (layout === "teks") {
     // subtitle besar tanpa kotak, kata yang sedang diucapkan diberi warna aksen
     return (
@@ -852,7 +904,9 @@ const transitionFor = (i: number) => {
 
 export const sceneFrames = (s: Scene, fps: number) => Math.max(1, Math.ceil((s.durationSec || 3) * fps));
 
-export const KodeKepoVideo: React.FC<VideoProps> = ({ scenes, cues, characters, theme, episode, hookTitle, hookKeyword, logo, bgm, products, affiliateCta }) => {
+export const KodeKepoVideo: React.FC<VideoProps> = ({ scenes, cues, characters, theme, episode, hookTitle, hookKeyword, logo, bgm, products, affiliateCta, looks, videoTitle }) => {
+  const anim = isAnimLayout(layoutOf(theme));
+  const soft = layoutOf(theme) === "horor" || layoutOf(theme) === "motivasi";
   useFonts();
   const { fps } = useVideoConfig();
   const outro = Math.round(OUTRO_SEC * fps);
@@ -871,16 +925,16 @@ export const KodeKepoVideo: React.FC<VideoProps> = ({ scenes, cues, characters, 
       <TransitionSeries>
         {scenes.flatMap((s, i) => [
           <TransitionSeries.Sequence key={s.id} durationInFrames={sceneFrames(s, fps) + TRANSITION}>
-            <SceneView scene={s} index={i} theme={theme} products={products} cta={i === scenes.length - 1 ? affiliateCta : undefined} />
+            <SceneView scene={s} index={i} total={scenes.length} theme={theme} products={products} cta={i === scenes.length - 1 ? affiliateCta : undefined} looks={looks} videoTitle={videoTitle || hookTitle} episode={episode} />
           </TransitionSeries.Sequence>,
-          <TransitionSeries.Transition key={s.id + "-t"} presentation={i === scenes.length - 1 ? fade() : transitionFor(i)} timing={linearTiming({ durationInFrames: TRANSITION })} />,
+          <TransitionSeries.Transition key={s.id + "-t"} presentation={i === scenes.length - 1 || soft ? fade() : transitionFor(i)} timing={linearTiming({ durationInFrames: TRANSITION })} />,
         ])}
         <TransitionSeries.Sequence durationInFrames={outro}>
           <Outro theme={theme} logo={logo} />
         </TransitionSeries.Sequence>
       </TransitionSeries>
 
-      {hookTitle ? (
+      {hookTitle && !anim ? (
         <Sequence durationInFrames={HOOK}>
           <Hook title={hookTitle} keyword={hookKeyword} theme={theme} episode={episode} tag={scenes[0]?.tag} />
         </Sequence>
