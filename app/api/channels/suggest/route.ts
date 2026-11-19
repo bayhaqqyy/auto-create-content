@@ -1,4 +1,4 @@
-import { generateJson, hasApiKey } from "../../../../lib/gemini";
+import { generateJson, hasTextAI } from "../../../../lib/claude";
 import { GEMINI_VOICES } from "../../../../lib/defaults";
 export const dynamic = "force-dynamic";
 
@@ -37,7 +37,7 @@ const SCHEMA = {
 export async function POST(req: Request) {
   const { description } = await req.json().catch(() => ({}));
   if (!String(description || "").trim()) return Response.json({ error: "Tulis dulu channel-nya tentang apa." }, { status: 400 });
-  if (!hasApiKey()) return Response.json({ error: "Saran AI butuh GEMINI_API_KEY. Isi brand kit secara manual dulu." }, { status: 400 });
+  if (!hasTextAI()) return Response.json({ error: "Saran AI butuh Claude CLI. Isi brand kit secara manual dulu." }, { status: 400 });
   try {
     const kit = await generateJson(
       `Rancang brand kit untuk channel video pendek (TikTok/Reels/Shorts) berbahasa Indonesia dari deskripsi ini:\n"${description}"\n\n` +

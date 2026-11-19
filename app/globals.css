@@ -131,6 +131,7 @@ button:disabled { cursor: not-allowed; }
 .tpl[aria-pressed="true"] .tpl-name { background: var(--lime); }
 .strip { flex: 0 0 auto; display: flex; flex-direction: column; gap: 2px; padding: 4px; border-radius: 9px; background: var(--light); border: 1px solid var(--line2); }
 .strip span { display: block; border-radius: 2px; }
+.tpl-preview { flex: 0 0 auto; display: block; height: auto; aspect-ratio: 9 / 16; border-radius: 10px; border: 1px solid var(--line2); background: var(--navy); object-fit: cover; }
 .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); }
 .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; box-shadow: inset 0 0 0 1px rgba(15, 25, 40, 0.25); }
 .actionbar { position: sticky; bottom: 0; z-index: 5; margin: 0 calc(-1 * clamp(20px, 4vw, 64px)); padding: 16px clamp(20px, 4vw, 64px); background: var(--navy); color: var(--light); display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; }
@@ -181,3 +182,34 @@ table.t tr:last-child td { border-bottom: 0; }
 /* video affiliate: area foto produk */
 .drop { border: 2px dashed #c3ccda; border-radius: 16px; padding: 22px; background: #fbfcfe; }
 .drop:focus-within { border-color: var(--navy); }
+
+/* ---------- login ---------- */
+.login { min-height: 100vh; display: flex; flex-wrap: wrap; background: var(--paper); }
+.login-side { flex: 1 1 420px; background: var(--navy); color: var(--light); padding: 40px clamp(24px, 5vw, 64px); display: flex; flex-direction: column; justify-content: space-between; gap: 48px; position: relative; overflow: hidden; }
+.login-side::after { content: ""; position: absolute; right: -80px; top: 18%; width: 260px; aspect-ratio: 9 / 16; border: 2px solid rgba(32, 223, 244, 0.35); border-radius: 28px; transform: rotate(8deg); }
+.login-logo { color: var(--light); }
+.login-logo b { color: var(--navy); }
+.login-pitch { display: flex; flex-direction: column; gap: 12px; position: relative; z-index: 1; }
+.login-kicker { margin: 0; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--cyan); font-weight: 650; }
+.login-headline { margin: 0; font-size: clamp(32px, 4vw, 48px); line-height: 1.05; font-weight: 800; font-stretch: 125%; letter-spacing: -0.035em; text-wrap: balance; }
+.login-track { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; position: relative; z-index: 1; max-width: 340px; }
+.login-track li { display: flex; gap: 14px; align-items: center; padding: 10px 14px; border-radius: 10px; background: rgba(255, 255, 255, 0.06); font-weight: 500; }
+.login-track li:last-child { background: var(--lime); color: var(--navy); font-weight: 700; }
+.login-tc { font-variant-numeric: tabular-nums; font-size: 13px; opacity: 0.75; }
+.login-main { flex: 1 1 420px; display: flex; align-items: center; justify-content: center; padding: 40px 20px; }
+.login-card { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 20px; background: var(--white); border: 1px solid var(--line); border-radius: var(--r-card); padding: 32px 28px; }
+.login-logo-sm { display: none; }
+.login-head { display: flex; flex-direction: column; gap: 6px; }
+.login-head p { margin: 0; }
+.login-pass { position: relative; }
+.login-pass .input { padding-right: 112px; }
+.login-eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: 0; background: none; padding: 6px 10px; border-radius: 8px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+.login-eye:hover { background: var(--soft); color: var(--navy); }
+.login-error { margin: 0; padding: 10px 14px; border-radius: var(--r-ctl); background: #ffe9e4; color: #8a2a17; font-size: 14px; font-weight: 550; }
+.login-submit { width: 100%; min-height: 48px; }
+.nav-logout { width: 100%; text-align: left; border: 0; background: none; color: var(--muted); }
+@media (max-width: 860px) {
+  .login-side { display: none; }
+  .login-logo-sm { display: inline-flex; }
+  .login-main { align-items: flex-start; padding-top: 48px; }
+}

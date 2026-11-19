@@ -1,3 +1,4 @@
+import { startPreviews } from "../../../../lib/jobs";
 import fs from "node:fs";
 import { CHANNELS, getChannels, getCharacters, getTemplates, listProjects, saveChannels, saveCharacters, saveTemplates } from "../../../../lib/store";
 import type { Channel } from "../../../../lib/types";
@@ -22,6 +23,7 @@ export async function PUT(req: Request, { params }: Ctx) {
   if (i < 0) return Response.json({ error: "Channel tidak ditemukan" }, { status: 404 });
   list[i] = { ...b, id, logo: list[i].logo, bgm: list[i].bgm, bgmVolume: Math.max(0, Math.min(0.5, Number(b.bgmVolume) || 0)) };
   saveChannels(list);
+  startPreviews(id);
   return Response.json(list[i]);
 }
 

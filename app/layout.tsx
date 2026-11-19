@@ -1,7 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { Nav } from "../components/Nav";
-import { ChannelProvider } from "../components/channel";
+import { Shell } from "../components/Shell";
 
 export const metadata: Metadata = { title: "Studio konten", description: "Topik jadi video pendek untuk tiap channel" };
 
@@ -9,12 +8,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="id">
       <body>
-        <ChannelProvider>
-          <div className="shell">
-            <Nav />
-            <main className="main">{children}</main>
-          </div>
-        </ChannelProvider>
+        <Shell>{children}</Shell>
       </body>
     </html>
   );

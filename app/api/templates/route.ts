@@ -1,3 +1,4 @@
+import { startPreviews } from "../../../lib/jobs";
 import { getCharacters, getTemplates, saveTemplates } from "../../../lib/store";
 import crypto from "node:crypto";
 export const dynamic = "force-dynamic";
@@ -24,5 +25,6 @@ export async function POST(req: Request) {
     rules: [],
   };
   saveTemplates([...list, t]);
+  startPreviews(channelId);
   return Response.json(t);
 }

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { api } from "../components/api";
-import { Strip } from "../components/Strip";
+import { TplPreview } from "../components/Strip";
 import { useChannel } from "../components/channel";
 import type { Character, Template } from "../lib/types";
 
@@ -43,6 +43,7 @@ function CreatePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [demo, setDemo] = useState(false);
+  const [voice, setVoice] = useState(true);
 
   useEffect(() => {
     if (!current) return;
@@ -56,7 +57,7 @@ function CreatePage() {
       .catch((e) => setError(e.message));
   }, [current?.id]);
   useEffect(() => {
-    api("/api/status").then((d) => setDemo(d.demo)).catch(() => {});
+    api("/api/status").then((d) => (setDemo(d.demo), setVoice(d.voice))).catch(() => {});
   }, []);
 
   const currentTpl = useMemo(() => templates?.find((t) => t.id === tpl), [templates, tpl]);
@@ -84,7 +85,12 @@ function CreatePage() {
     <div className="wrap">
       {demo ? (
         <p className="banner" role="status">
-          Mode demo: belum ada GEMINI_API_KEY, jadi naskah memakai contoh dan suaranya hening. Isi kunci di <code>.env.local</code> untuk hasil asli.
+          Mode demo: Claude CLI tidak ditemukan, jadi naskah memakai contoh. Login Claude (<code>CLAUDE_CODE_OAUTH_TOKEN</code>) untuk naskah asli.
+        </p>
+      ) : null}
+      {!voice ? (
+        <p className="banner" role="status">
+          Belum ada GEMINI_API_KEY, jadi suara masih hening dan gambar/klip 3D tidak dibuat. Isi kuncinya di <code>.env</code> untuk suara asli.
         </p>
       ) : null}
       <section className="stack" style={{ gap: 16 }}>
@@ -130,7 +136,7 @@ function CreatePage() {
         <div className="tpl-grid">
           {templates?.map((t) => (
             <button type="button" key={t.id} className="tpl" aria-pressed={tpl === t.id} onClick={() => setTpl(t.id)}>
-              <Strip scenes={t.scenes} chars={chars} />
+              <TplPreview t={t} chars={chars} />
               <span className="stack" style={{ gap: 6, minWidth: 0 }}>
                 <span className="tpl-name">{t.name}</span>
                 <span className="muted" style={{ fontSize: 14 }}>{t.description}</span>

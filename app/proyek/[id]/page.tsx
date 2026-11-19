@@ -163,7 +163,7 @@ function SceneRow({
         <p className="prompt" style={{ margin: 0 }}>Prompt gambar/klip 3D: {s.prompt}</p>
         {s.visual.clip ? <p className="small muted" style={{ margin: 0 }}>Klip terpasang: {s.visual.clip}</p> : null}
         <div className="row">
-          <button className="btn quiet sm" onClick={() => onRun("rewrite", s.id)} disabled={!!p.demo} title={p.demo ? "Butuh GEMINI_API_KEY" : undefined}>
+          <button className="btn quiet sm" onClick={() => onRun("rewrite", s.id)} disabled={!!p.demo} title={p.demo ? "Butuh Claude CLI" : undefined}>
             Tulis ulang scene
           </button>
           <button
@@ -452,7 +452,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               <div className="card flush" role="tabpanel">
                 <div className="card-head">
                   <span className="muted">{draft.scenes.length} {isAd ? "adegan" : "scene"}{total ? `, total ${Math.round(total)} detik` : ""}. Klik teks untuk mengedit langsung.</span>
-                  <button className="btn quiet sm" onClick={() => (!isAd || confirm("Tulis ulang semua adegan? Klip dan suara yang ada akan dihapus.")) && run("script")} disabled={!isAd && !!p.demo} title={!isAd && p.demo ? "Butuh GEMINI_API_KEY" : undefined}>Tulis ulang semua</button>
+                  <button className="btn quiet sm" onClick={() => (!isAd || confirm("Tulis ulang semua adegan? Klip dan suara yang ada akan dihapus.")) && run("script")} disabled={!isAd && !!p.demo} title={!isAd && p.demo ? "Butuh Claude CLI" : undefined}>Tulis ulang semua</button>
                 </div>
                 <div className="list">
                   {draft.scenes.map((s, i) => isAd ? (

@@ -1,0 +1,19 @@
+# Pakai: isi .env (CLAUDE_CODE_OAUTH_TOKEN, GEMINI_API_KEY, AUTH_EMAIL, AUTH_PASSWORD_HASH, AUTH_SECRET), lalu `docker compose up -d --build`.
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:3010:3000"
+    volumes:
+      - ./data:/app/data
+
+  # Akses dari luar. Tanpa CLOUDFLARE_TUNNEL_TOKEN: quick tunnel (URL acak *.trycloudflare.com, berubah tiap restart, lihat `docker compose logs tunnel`).
+  # Dengan token (Cloudflare dashboard → Tunnels → buat tunnel, public hostname → http://web:3000): URL tetap di domain sendiri.
+  tunnel:
+    image: cloudflare/cloudflared:2025.4.0
+    restart: unless-stopped
+    command: ${CLOUDFLARE_TUNNEL_TOKEN:+tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}}${CLOUDFLARE_TUNNEL_TOKEN:-tunnel --no-autoupdate --url http://web:3000}
+    depends_on:
+      - web

@@ -1,3 +1,4 @@
+import { startPreviews } from "../../../lib/jobs";
 import { getCharacters, saveCharacters } from "../../../lib/store";
 import { GEMINI_VOICES } from "../../../lib/defaults";
 import type { Character } from "../../../lib/types";
@@ -18,5 +19,6 @@ export async function PUT(req: Request) {
   const rest = getCharacters().filter((c) => c.channelId !== channelId);
   const mine = characters.map((c) => ({ ...c, channelId }));
   saveCharacters([...rest, ...mine]);
+  startPreviews(channelId);
   return Response.json({ characters: mine });
 }

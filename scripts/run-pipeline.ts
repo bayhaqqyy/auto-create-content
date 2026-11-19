@@ -6,7 +6,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { channelDir, getChannel, getCharacters, getProducts, saveProducts, getProject, getTemplate, listProjects, projectDir, ROOT, saveProject } from "../lib/store";
-import { generateJson, hasApiKey, image, pcmToWav, research, tts, video, wavDuration, type RefImage } from "../lib/gemini";
+import { hasApiKey, image, pcmToWav, tts, video, wavDuration, type RefImage } from "../lib/gemini";
+import { generateJson, hasTextAI, research } from "../lib/claude";
 import { AD_SCHEMA, AD_TEMPLATE_ID, adScenes, buildAdPrompt, demoAd, sanitizeAd, type AdResult } from "../lib/adscript";
 import { execFileSync } from "node:child_process";
 import { buildPrompt, demoScript, sanitizeScript, SCRIPT_SCHEMA, type ScriptResult } from "../lib/script";
@@ -52,7 +53,7 @@ async function doAdScript(p: Project) {
   const x = productsOf(p)[0];
   if (!x) throw new Error("Produk untuk video ini tidak ditemukan. Mungkin sudah dihapus.");
   let r: AdResult;
-  if (!hasApiKey()) {
+  if (!hasTextAI()) {
     set(p, { status: "writing", stage: "Mode demo: naskah contoh", progress: 0.12, demo: true });
     r = demoAd(p, x);
   } else {
@@ -125,7 +126,7 @@ async function doScript(p: Project) {
   const ch = channelOf(p);
   const chars = getCharacters(ch.id);
   let result: ScriptResult;
-  if (!hasApiKey()) {
+  if (!hasTextAI()) {
     set(p, { status: "researching", stage: "Mode demo: memakai naskah contoh", progress: 0.1, demo: true });
     result = demoScript(ch.id);
     p.facts = [];
@@ -410,8 +411,8 @@ async function doRewrite(p: Project, sid: string) {
   const t = getTemplate(p.templateId);
   const idx = p.scenes.findIndex((s) => s.id === sid);
   if (!t || idx < 0) throw new Error("Scene tidak ditemukan");
-  if (!hasApiKey()) {
-    set(p, { stage: "Mode demo: tulis ulang butuh GEMINI_API_KEY" });
+  if (!hasTextAI()) {
+    set(p, { stage: "Mode demo: tulis ulang butuh Claude CLI" });
     return;
   }
   set(p, { status: "writing", stage: `Menulis ulang scene ${idx + 1}`, progress: 0.3 });

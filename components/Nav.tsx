@@ -26,6 +26,10 @@ export function Nav() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+  const logout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    window.location.href = "/login";
+  };
   const active = (href: string) => (href === "/" ? path === "/" : path === href || path.startsWith(href + "/"));
   return (
     <nav className={"nav" + (open ? " open" : "")} aria-label="Menu utama">
@@ -57,6 +61,9 @@ export function Nav() {
             ))}
           </div>
         ))}
+        <div className="nav-group">
+          <button className="nav-link nav-logout" onClick={logout}>Keluar</button>
+        </div>
       </div>
     </nav>
   );

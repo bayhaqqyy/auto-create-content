@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../../components/api";
-import { Strip } from "../../components/Strip";
+import { TplPreview } from "../../components/Strip";
 import { useChannel } from "../../components/channel";
 import type { Character, Project, Template } from "../../lib/types";
 
@@ -49,7 +49,7 @@ export default function Templates() {
             const used = projects.filter((p) => p.templateId === t.id).length;
             return (
               <div key={t.id} className="row" style={{ padding: "18px 22px", gap: 20 }}>
-                <Strip scenes={t.scenes} chars={chars} w={40} h={72} />
+                <TplPreview t={t} chars={chars} w={54} />
                 <div style={{ flex: "1 1 260px", minWidth: 0 }}>
                   <div style={{ fontWeight: 750, fontSize: 17 }}>
                     {t.name}

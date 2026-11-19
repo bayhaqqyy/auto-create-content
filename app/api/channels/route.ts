@@ -1,3 +1,4 @@
+import { startPreviews } from "../../../lib/jobs";
 import crypto from "node:crypto";
 import { getChannels, getCharacters, getTemplates, saveChannels, saveCharacters, saveTemplates } from "../../../lib/store";
 import { DEFAULT_CHANNELS } from "../../../lib/defaults";
@@ -70,5 +71,6 @@ export async function POST(req: Request) {
       rules: ["Cukup satu part.", "Jangan mengarang angka, kutipan, atau kejadian. Semua fakta harus dari hasil riset."],
     },
   ]);
+  startPreviews(ch.id);
   return Response.json(ch);
 }

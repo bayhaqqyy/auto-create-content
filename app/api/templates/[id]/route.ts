@@ -1,3 +1,4 @@
+import { startPreviews } from "../../../../lib/jobs";
 import { getTemplates, saveTemplates, listProjects } from "../../../../lib/store";
 import type { Template } from "../../../../lib/types";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ export async function PUT(req: Request, { params }: Ctx) {
   if (i < 0) return Response.json({ error: "Template tidak ditemukan" }, { status: 404 });
   list[i] = { ...body, id, channelId: list[i].channelId };
   saveTemplates(list);
+  startPreviews(list[i].channelId);
   return Response.json(list[i]);
 }
 
