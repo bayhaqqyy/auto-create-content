@@ -275,7 +275,7 @@ function demoStick(): ScriptResult {
         { set: "kamar", cast: [{ who: "pemuda", pose: "kaget", mood: "panik", talk: false }], event: "kaget", camera: "guncang" }),
       sc(N, "KATANYA", "Katanya beras bisa nyedot airnya. Rendam semalam, besok beres.", "MASUKIN|KE BERAS?", "semalam",
         { set: "dapur", cast: [{ who: "pemuda", pose: "jempol", mood: "bangga", talk: false }], event: "tidak-ada", camera: "dorong" }),
-      sc(N, "FAKTANYA", "Apple sendiri bilang jangan. Butiran kecil beras malah bisa masuk ke lubang charger dan bikin rusak.", "INI|MITOS", "jangan",
+      sc(N, "FAKTANYA", "Apple sendiri bilang jangan. Butiran kecil beras malah bisa masuk ke lubang charger dan bikin rusak.", "KATA APPLE:|JANGAN!", "jangan",
         { set: "dapur", cast: [{ who: "pemuda", pose: "tepok-jidat", mood: "bingung", talk: false }], event: "salah", camera: "diam" }),
       sc(N, "YANG BENER", "Yang bener: ketuk pelan HP ke telapak tangan, lubang charger menghadap ke bawah, biar airnya keluar.", "YANG BENER|GIMANA?", "ketuk",
         { set: "kelas", cast: [{ who: "pemuda", pose: "mikir", mood: "senang", talk: false }], event: "ide", camera: "dorong" }),

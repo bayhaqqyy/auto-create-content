@@ -112,6 +112,7 @@ export function drawSiluet(ctx, inp: AnimInput) {
   let fx = 470, fy = 1260;
   if (set === "tangga") { fx = lerp(430, h.x, 0.85); fy = h.y - 260 + 120; if (c.pose === "sorak") { z = lerp(1.15, 0.92, ease.outCubic(clamp(t / 1.2))); fy += lerp(0, 120, clamp(t / 1.2)); } }
   if (c.pose === "jalan" || c.pose === "lari") fx = lerp(470, h.x, 0.7);
+  if (c.pose === "jatuh") fx = lerp(470, 330, ease.inOutCubic(clamp(t / 0.8)));
   withCam(ctx, { z, fx, fy, sx: shake, cy: H * 0.62 }, () => {
     sky(ctx, k);
     if (set === "puncak" || set === "tangga" || ev === "matahari") sun(ctx, set === "puncak" ? Math.max(k, 0.6) : k, set === "tangga" ? 760 : 540, lerp(1700, set === "puncak" ? 1250 : 980, Math.max(k, set === "puncak" ? 0.6 : 0)));

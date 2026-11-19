@@ -392,10 +392,10 @@ function drawCast(ctx, t, inp, sitting) {
 }
 function sleeper(ctx, t, look, x) {
   const br = Math.sin(t * 1.6) * 4;
-  ctx.beginPath(); ctx.ellipse(x - 220, 1620 - br, 200, 64 + br, 0, Math.PI, 0); path(ctx, "#3C6E5A");
-  rr(ctx, x - 70, 1560, 130, 60, 26, "#E8E2D6");
-  ell(ctx, x, 1560, 44, 32, look.hair === "hijab" ? look.hijabCol : look.hairCol, 5);
-  txt(ctx, "z", x + 70, 1500 - ((t * 30) % 40), 34, "rgba(255,255,255,0.6)", { weight: 800 });
+  ctx.beginPath(); ctx.ellipse(x - 220, 1560 - br, 200, 64 + br, 0, Math.PI, 0); path(ctx, "#3C6E5A");
+  rr(ctx, x - 70, 1500, 130, 60, 26, "#E8E2D6");
+  ell(ctx, x, 1500, 44, 32, look.hair === "hijab" ? look.hijabCol : look.hairCol, 5);
+  txt(ctx, "z", x + 70, 1440 - ((t * 30) % 40), 34, "rgba(255,255,255,0.6)", { weight: 800 });
 }
 function tint(ctx, col, a) { ctx.save(); ctx.globalCompositeOperation = "multiply"; ctx.globalAlpha = a; ctx.fillStyle = col; ctx.fillRect(-600, -600, W + 1200, H + 1200); ctx.restore(); }
 

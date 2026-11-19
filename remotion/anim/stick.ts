@@ -131,14 +131,14 @@ function bulb(ctx, x, y, t) {
 function stamp(ctx, t, word, col) {
   const k = ease.outBack(clamp((t - 0.35) / 0.16), 3); if (t < 0.35) return;
   const sc = 2.2 - 1.2 * k;
-  ctx.save(); ctx.translate(W / 2, 760); ctx.rotate(-0.12); ctx.scale(sc, sc); ctx.globalAlpha = clamp((t - 0.35) / 0.06);
+  ctx.save(); ctx.translate(760, 820); ctx.rotate(-0.12); ctx.scale(sc * 0.62, sc * 0.62); ctx.globalAlpha = clamp((t - 0.35) / 0.06);
   ctx.strokeStyle = col; ctx.lineWidth = 14; ctx.beginPath(); ctx.roundRect(-270, -110, 540, 190, 24); ctx.stroke();
   outlined(ctx, word, 0, 50, 140, col, { fam: "Bungee", sw: 0, maxW: 500 });
   ctx.restore();
 }
 function check(ctx, t) {
   const k = pop(t, 0.35, 0.3, 3); if (k <= 0) return;
-  ctx.save(); ctx.translate(W / 2, 760); ctx.scale(k, k);
+  ctx.save(); ctx.translate(800, 820); ctx.scale(k * 0.85, k * 0.85);
   ctx.fillStyle = "#2FB36B"; ctx.strokeStyle = INK; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(0, 0, 120, 0, 7); ctx.fill(); ctx.stroke();
   ctx.strokeStyle = "#fff"; ctx.lineWidth = 26; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(-55, 0); ctx.lineTo(-12, 45); ctx.lineTo(60, -45); ctx.stroke();
   ctx.restore();
@@ -155,7 +155,8 @@ export function drawStick(ctx, inp: AnimInput) {
   withCam(ctx, cam, () => {
     (SETS[anim.set] || SETS.kamar)(ctx, t);
     cast.forEach((c, i) => {
-      const home = n === 1 ? 540 : i === 0 ? 330 : 750;
+      const side = ev === "salah" || ev === "benar";
+      const home = n === 1 ? (side ? 380 : 540) : i === 0 ? 330 : 750;
       let x = home, pose, flip = n > 1 && i === 1 ? -1 : 1, hop = 0;
       if (c.pose === "jalan") { x = lerp(home - 260, home, clamp(t / Math.min(dur, 2.4))); pose = t < Math.min(dur, 2.4) ? walkPose(t * 9) : POSES.stand; }
       else if (c.pose === "lari") { x = lerp(-150, home, ease.outCubic(clamp(t / Math.min(dur, 1.6)))); pose = t < Math.min(dur, 1.6) ? walkPose(t * 16, 1.3, true) : POSES.shock; }
