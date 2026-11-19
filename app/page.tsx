@@ -5,7 +5,8 @@ import { Suspense } from "react";
 import { api } from "../components/api";
 import { TplPreview } from "../components/Strip";
 import { useChannel } from "../components/channel";
-import type { Character, Template } from "../lib/types";
+import type { Character, Template, Layout } from "../lib/types";
+import { LAYOUTS } from "../lib/defaults";
 
 const QUICK: Record<string, string[]> = {
   kodekepo: ["Kode dial HP yang jarang diketahui", "Cara kerja kode di meteran listrik", "Kenapa bank di Indonesia sering diserang siber"],
@@ -40,6 +41,7 @@ function CreatePage() {
   const [dur, setDur] = useState("60 detik");
   const [audience, setAudience] = useState("Gen Z");
   const [style, setStyle] = useState<"cards" | "3d">("cards");
+  const [layout, setLayout] = useState<Layout>("kartu");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [demo, setDemo] = useState(false);
@@ -63,6 +65,7 @@ function CreatePage() {
   const currentTpl = useMemo(() => templates?.find((t) => t.id === tpl), [templates, tpl]);
   useEffect(() => {
     if (currentTpl || current) setStyle(currentTpl?.visualMode || current?.visualMode || "cards");
+    if (currentTpl || current) setLayout(currentTpl?.layout || current?.layout || "kartu");
   }, [currentTpl?.id, current?.id]);
   const ready = topic.trim().length >= 10 && !!currentTpl;
 
@@ -72,7 +75,7 @@ function CreatePage() {
     try {
       const p = await api("/api/projects", {
         method: "POST",
-        json: { topic, templateId: tpl, platform, durationTarget: parseInt(dur), audience, visualStyle: style, episode },
+        json: { topic, templateId: tpl, platform, durationTarget: parseInt(dur), audience, visualStyle: style, layout, episode },
       });
       router.push(`/proyek/${p.id}`);
     } catch (e: any) {
@@ -156,6 +159,7 @@ function CreatePage() {
           <Seg label="Platform" opts={["TikTok", "Reels", "Shorts"]} value={platform} onChange={setPlatform} />
           <Seg label="Durasi" opts={["45 detik", "60 detik", "75 detik"]} value={dur} onChange={setDur} />
           <Seg label="Penonton" opts={["Gen Z", "Umum (FB)"]} value={audience} onChange={setAudience} />
+          <Seg label="Tampilan" opts={LAYOUTS.map((l) => l.name)} value={LAYOUTS.find((l) => l.id === layout)?.name || LAYOUTS[0].name} onChange={(v) => setLayout(LAYOUTS.find((l) => l.name === v)?.id || "kartu")} />
           <Seg label="Visual" opts={["Kartu motion graphic", "Gambar 3D AI"]} value={style === "3d" ? "Gambar 3D AI" : "Kartu motion graphic"} onChange={(v) => setStyle(v === "Gambar 3D AI" ? "3d" : "cards")} />
           <div className="field" style={{ width: 160 }}>
             <label htmlFor="ep">Nomor episode</label>

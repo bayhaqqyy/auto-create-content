@@ -13,7 +13,7 @@ import { execFileSync } from "node:child_process";
 import { buildPrompt, demoScript, sanitizeScript, SCRIPT_SCHEMA, type ScriptResult } from "../lib/script";
 import { adChecks, runChecks } from "../lib/policy";
 import { allCues, toSrt } from "../lib/subtitle";
-import type { Channel, Character, Project, Scene } from "../lib/types";
+import type { Channel, Character, Layout, Project, Scene } from "../lib/types";
 import { DEFAULT_CHANNELS } from "../lib/defaults";
 
 const [id, step = "all", sceneId] = process.argv.slice(2);
@@ -266,6 +266,10 @@ async function imageScene(p: Project, s: Scene) {
   s.image = file;
 }
 
+export function layoutOf(p: Project): Layout {
+  return p.layout || getTemplate(p.templateId)?.layout || channelOf(p).layout || "kartu";
+}
+
 export function visualModeOf(p: Project): "cards" | "3d" {
   if (p.visualStyle === "3d" || p.visualStyle === "cards") return p.visualStyle;
   return getTemplate(p.templateId)?.visualMode || channelOf(p).visualMode;
@@ -338,6 +342,8 @@ async function doRender(p: Project) {
       bgmVolume: ch.bgmVolume,
       channelName: ch.name,
       font: ch.font,
+      layout: layoutOf(p),
+      showHeader: !!ch.showHeader,
     },
     episode: p.episode || "",
     hookTitle: p.coverText || p.title || "",

@@ -32,6 +32,10 @@ export type Theme = {
   grid: boolean;
   bgmVolume: number;
   font: "jakarta" | "archivo";
+  /** "kartu" (bawaan), "layar" = latar terang dengan HP besar, "teks" = teks besar di tengah */
+  layout?: "kartu" | "layar" | "teks";
+  /** header nama channel + garis progres di atas (bawaan mati: tertutup kolom cari TikTok) */
+  showHeader?: boolean;
 };
 
 export type VideoProps = {
@@ -78,6 +82,35 @@ const alpha = (hex: string, a: number) => {
   const n = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 };
+const rgb = (hex: string) => {
+  const h = hex.replace("#", "");
+  const n = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+/** Luminans relatif 0..1 (WCAG). */
+const lum = (hex: string) => {
+  const [r, g, b] = rgb(hex).map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+/** Gelapkan warna aksen yang terlalu terang supaya terbaca di latar putih. */
+const deepen = (hex: string) => {
+  let [r, g, b] = rgb(hex);
+  for (let i = 0; i < 12 && lum(`#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`) > 0.2; i++) {
+    r = Math.round(r * 0.85); g = Math.round(g * 0.85); b = Math.round(b * 0.85);
+  }
+  return `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+};
+/** Versi terang tema channel, dipakai tampilan "layar". */
+const lightTheme = (t: Theme): Theme => ({
+  ...t,
+  grid: false,
+  colors: { ...t.colors, bg: "#F4F6FA", card: "#FFFFFF", text: "#0F1928", muted: "#5B6678", accent: deepen(t.colors.accent), accent2: deepen(t.colors.accent2) },
+});
+const layoutOf = (t: Theme) => t.layout || "kartu";
+
 const useSpring = (delay = 0, damping = 15, stiffness = 160) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -470,7 +503,9 @@ const Chapter: React.FC<{ scene: Scene; theme: Theme; index: number }> = ({ scen
   );
 };
 
-const SceneView: React.FC<{ scene: Scene; index: number; theme: Theme; products?: Record<string, ProductInfo>; cta?: string }> = ({ scene, index, theme, products, cta }) => {
+type SceneProps = { scene: Scene; index: number; theme: Theme; products?: Record<string, ProductInfo>; cta?: string };
+
+const SceneKartu: React.FC<SceneProps> = ({ scene, index, theme, products, cta }) => {
   const ctaIn = useSpring(14, 11);
   const isClip = scene.visual.kind === "clip" && !!scene.visual.clip;
   const media = isClip || !!scene.image;
@@ -502,10 +537,124 @@ const SceneView: React.FC<{ scene: Scene; index: number; theme: Theme; products?
   );
 };
 
+const CtaPill: React.FC<{ cta: string; theme: Theme; top: number }> = ({ cta, theme, top }) => {
+  const ctaIn = useSpring(14, 11);
+  return (
+    <div style={{ position: "absolute", left: X, top, display: "flex", alignItems: "center", gap: 14, background: theme.colors.accent, color: theme.colors.bg, fontWeight: 800, fontSize: 40, padding: "16px 28px", borderRadius: 999, transform: `scale(${ctaIn})`, transformOrigin: "left center" }}>
+      <Icon name="cart" size={42} color={theme.colors.bg} stroke={2.6} />
+      {cta}
+    </div>
+  );
+};
+
+/** Latar terang penuh layar (tampilan "layar"): gradasi lembut, tanpa area gelap yang terbaca seperti bingkai. */
+const LightBackdrop: React.FC<{ theme: Theme }> = ({ theme }) => (
+  <AbsoluteFill style={{ background: "linear-gradient(180deg, #EEF3FC 0%, #DCE6F7 55%, #C9D9F5 100%)" }}>
+    <AbsoluteFill style={{ background: `radial-gradient(circle at 85% 12%, ${alpha(theme.colors.accent, 0.16)}, transparent 45%)` }} />
+  </AbsoluteFill>
+);
+
+const StatusBar: React.FC = () => (
+  <div style={{ position: "absolute", top: 34, left: 60, right: 60, display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: 800, fontSize: 30, color: "#0F1928" }}>
+    <span>09:41</span>
+    <span style={{ width: 54, height: 26, borderRadius: 8, border: "3px solid #0F1928", padding: 3, boxSizing: "border-box", display: "flex" }}>
+      <span style={{ flex: 1, background: "#0F1928", borderRadius: 3 }} />
+    </span>
+  </div>
+);
+
+/** Tampilan "layar": HP besar di tengah latar terang, isi scene tampil di layar HP. Gaya yang paling ditonton di EP.031/032. */
+const SceneLayar: React.FC<SceneProps> = ({ scene, index, theme, products, cta }) => {
+  const frame = useCurrentFrame();
+  const lt = lightTheme(theme);
+  const e = useSpring(0, 16, 140);
+  const isClip = scene.visual.kind === "clip" && !!scene.visual.clip;
+  const media = isClip || !!scene.image;
+  const zoom = 1 + Math.min(1, frame / 120) * 0.025;
+  return (
+    <AbsoluteFill style={{ fontFamily: fontFamily(theme) }}>
+      <LightBackdrop theme={theme} />
+      <div style={{ position: "absolute", top: 160, left: X, right: X }}>
+        <Chapter scene={scene} theme={lt} index={index} />
+      </div>
+      <div
+        style={{
+          position: "absolute", left: 100, right: 100, top: 560, height: 1500, borderRadius: 96, background: "#0B0F18",
+          boxShadow: "0 40px 80px rgba(15,25,40,0.25)", transform: `translateY(${(1 - e) * 120}px) scale(${zoom})`, transformOrigin: "50% 0%",
+        }}
+      >
+        <div style={{ position: "absolute", top: 20, left: 20, right: 20, bottom: 0, borderRadius: 78, background: lt.colors.bg, overflow: "hidden" }}>
+          {isClip ? (
+            <OffthreadVideo src={staticFile(scene.visual.clip!)} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : scene.image ? (
+            <Img src={staticFile(scene.image)} style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${1.04 + frame * 0.0006})` }} />
+          ) : (
+            <>
+              <StatusBar />
+              <div style={{ position: "absolute", top: 120, left: 40, right: 40 }}>
+                <Visual scene={scene} theme={lt} index={index} media={media} products={products} />
+              </div>
+            </>
+          )}
+        </div>
+        <div style={{ position: "absolute", top: 40, left: "50%", width: 150, height: 40, marginLeft: -75, borderRadius: 20, background: "#0B0F18" }} />
+      </div>
+      {cta ? <CtaPill cta={cta} theme={lt} top={1180} /> : null}
+    </AbsoluteFill>
+  );
+};
+
+/** Tampilan "teks": judul bab sangat besar di tengah, ikon kecil, subtitle besar tanpa kotak. */
+const SceneTeks: React.FC<SceneProps> = ({ scene, index, theme, products, cta }) => {
+  const frame = useCurrentFrame();
+  const tag = useSpring(0, 12, 200);
+  const l1 = useSpring(3);
+  const l2 = useSpring(8);
+  const ic = useSpring(12, 12);
+  const [a, b] = lines(scene.screenText);
+  const col = index % 2 ? theme.colors.accent2 : theme.colors.accent;
+  const longest = Math.max(a.length, b.length);
+  const big = longest > 14 ? 104 : longest > 10 ? 124 : 148;
+  const showVisual = scene.visual.kind === "number" || scene.visual.kind === "product";
+  return (
+    <AbsoluteFill style={{ fontFamily: fontFamily(theme) }}>
+      {scene.image ? <SceneImage src={scene.image} index={index} theme={theme} /> : <Backdrop theme={theme} seed={index} />}
+      <div style={{ position: "absolute", top: 300, left: X, right: X, display: "flex", flexDirection: "column", alignItems: "center", gap: 44, textAlign: "center" }}>
+        {scene.tag ? (
+          <div style={{ background: col, color: theme.colors.bg, fontWeight: 800, fontSize: 32, letterSpacing: "0.06em", padding: "12px 26px", borderRadius: 999, transform: `scale(${tag})` }}>{scene.tag}</div>
+        ) : null}
+        <div style={{ fontWeight: 800, fontSize: big, lineHeight: 1.0, letterSpacing: "-0.03em", textTransform: "uppercase" }}>
+          <div style={{ color: theme.colors.text, opacity: l1, transform: `translateY(${(1 - l1) * 50}px)` }}>{a}</div>
+          {b ? <div style={{ color: col, opacity: l2, transform: `translateY(${(1 - l2) * 50}px)` }}>{b}</div> : null}
+        </div>
+        {showVisual ? (
+          <div style={{ width: "100%", textAlign: "left" }}>
+            <Visual scene={scene} theme={theme} index={index} media={false} products={products} />
+          </div>
+        ) : (
+          <div style={{ transform: `scale(${ic}) translateY(${Math.sin(frame / 16) * 8}px)` }}>
+            <IconCircle name={scene.visual.icon} theme={theme} size={230} color={col} />
+          </div>
+        )}
+      </div>
+      {cta ? <CtaPill cta={cta} theme={theme} top={1160} /> : null}
+    </AbsoluteFill>
+  );
+};
+
+const SceneView: React.FC<SceneProps> = (props) => {
+  const l = layoutOf(props.theme);
+  if (l === "layar") return <SceneLayar {...props} />;
+  if (l === "teks") return <SceneTeks {...props} />;
+  return <SceneKartu {...props} />;
+};
+
 /* ---------------- hook: frame pertama seperti cover ---------------- */
 
-const Hook: React.FC<{ title: string; keyword?: string; theme: Theme; episode?: string; tag?: string }> = ({ title, keyword, theme, episode, tag }) => {
+const Hook: React.FC<{ title: string; keyword?: string; theme: Theme; episode?: string; tag?: string }> = ({ title, keyword, theme: base, episode, tag }) => {
   const frame = useCurrentFrame();
+  const light = layoutOf(base) === "layar";
+  const theme = light ? lightTheme(base) : base;
   const out = interpolate(frame, [HOOK - 8, HOOK], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const words = title.toUpperCase().split(/\s+/).filter(Boolean);
   const nRows = Math.min(4, Math.max(2, Math.ceil(words.length / 2)));
@@ -518,7 +667,7 @@ const Hook: React.FC<{ title: string; keyword?: string; theme: Theme; episode?: 
   const size = rows.some((r) => r.length > 11) ? 104 : 124;
   return (
     <AbsoluteFill style={{ opacity: out, fontFamily: fontFamily(theme) }}>
-      <Backdrop theme={theme} seed={0} />
+      {light ? <LightBackdrop theme={base} /> : <Backdrop theme={theme} seed={0} />}
       <div style={{ position: "absolute", top: 300, left: 96, right: XR, display: "flex", flexDirection: "column", gap: 40 }}>
         <div style={{ display: "flex", gap: 14 }}>
           {episode ? <div style={{ background: theme.colors.accent, color: theme.colors.bg, fontWeight: 800, fontSize: 30, letterSpacing: "0.04em", padding: "10px 22px", borderRadius: 999 }}>{episode}</div> : null}
@@ -583,6 +732,51 @@ const Subtitles: React.FC<{ cues: Cue[]; scenes: Scene[]; theme: Theme; characte
   const progress = (t - cue.start) / Math.max(0.01, cue.end - cue.start);
   let acc = 0;
   const k = cue.keyword ? norm(cue.keyword) : "";
+  const layout = layoutOf(theme);
+  if (layout === "teks") {
+    // subtitle besar tanpa kotak, kata yang sedang diucapkan diberi warna aksen
+    return (
+      <div style={{ position: "absolute", left: X, right: X, bottom: 460, fontFamily: fontFamily(theme), textAlign: "center" }}>
+        <div style={{ fontWeight: 800, fontSize: 66, lineHeight: 1.18, textShadow: `0 4px 18px ${alpha("#000000", 0.45)}` }}>
+          {words.map((w, i) => {
+            const startFrac = acc / total;
+            acc += w.length + 1;
+            const endFrac = acc / total;
+            const now = progress >= startFrac && progress < endFrac;
+            const said = progress >= startFrac;
+            const isK = k && norm(w) === k;
+            return (
+              <span key={i} style={{ color: now || isK ? theme.colors.accent : theme.colors.text, opacity: said ? 1 : 0.4 }}>
+                {w}{" "}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+  if (layout === "layar") {
+    const lt = lightTheme(theme);
+    return (
+      <div style={{ position: "absolute", left: X, right: X, bottom: 330, fontFamily: fontFamily(theme), display: "flex", justifyContent: "center" }}>
+        <div style={{ background: alpha("#0F1928", 0.92), borderRadius: 30, padding: "20px 32px 24px", textAlign: "center", boxShadow: "0 20px 50px rgba(15,25,40,0.3)" }}>
+          <div style={{ fontWeight: 800, fontSize: 50, lineHeight: 1.22 }}>
+            {words.map((w, i) => {
+              const startFrac = acc / total;
+              acc += w.length + 1;
+              const said = progress >= startFrac;
+              const isK = k && norm(w) === k;
+              return (
+                <span key={i} style={{ color: isK ? theme.colors.accent : "#FFFFFF", opacity: said ? 1 : 0.45 }}>
+                  {w}{" "}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={{ position: "absolute", left: X, right: XR, bottom: 400, fontFamily: fontFamily(theme) }}>
       <div style={{ background: alpha(theme.colors.bg, 0.86), border: `2px solid ${alpha(theme.colors.text, 0.1)}`, borderRadius: 28, padding: "20px 28px 24px" }}>
@@ -693,7 +887,7 @@ export const KodeKepoVideo: React.FC<VideoProps> = ({ scenes, cues, characters, 
       ) : null}
 
       <Sequence durationInFrames={talk}>
-        <Header theme={theme} scenes={scenes} episode={episode} total={talk} />
+        {theme.showHeader ? <Header theme={theme} scenes={scenes} episode={episode} total={talk} /> : null}
         <Subtitles cues={cues} scenes={scenes} theme={theme} characters={characters} />
       </Sequence>
 

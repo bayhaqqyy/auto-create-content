@@ -4,7 +4,8 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../../../components/api";
 import { Strip } from "../../../components/Strip";
-import type { Character, Template } from "../../../lib/types";
+import type { Character, Layout, Template } from "../../../lib/types";
+import { LAYOUTS } from "../../../lib/defaults";
 
 export default function EditTemplate({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -98,6 +99,24 @@ export default function EditTemplate({ params }: { params: Promise<{ id: string 
               </select>
             </div>
             <fieldset style={{ border: 0, margin: 0, padding: 0 }} className="stack">
+              <legend className="label" style={{ marginBottom: 8 }}>Tampilan video</legend>
+              <div className="layout-pick">
+                <label className={"layout-opt" + (!t.layout ? " on" : "")}>
+                  <input type="radio" name="layout" checked={!t.layout} onChange={() => set({ layout: undefined })} />
+                  <span className="layout-name">Ikut brand kit</span>
+                  <span className="muted small">Pakai tampilan bawaan channel.</span>
+                </label>
+                {LAYOUTS.map((l) => (
+                  <label key={l.id} className={"layout-opt" + (t.layout === l.id ? " on" : "")}>
+                    <input type="radio" name="layout" checked={t.layout === l.id} onChange={() => set({ layout: l.id as Layout })} />
+                    <span className={`layout-thumb lt-${l.id}`} aria-hidden="true"><i /><b /><u /></span>
+                    <span className="layout-name">{l.name}</span>
+                    <span className="muted small">{l.desc}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset style={{ border: 0, margin: 0, padding: 0 }} className="stack">
               <legend className="label" style={{ marginBottom: 8 }}>Karakter</legend>
               <div className="row">
                 {chars.map((c) => (
@@ -121,7 +140,7 @@ export default function EditTemplate({ params }: { params: Promise<{ id: string 
             </div>
             <ol className="list" style={{ listStyle: "none", margin: 0, padding: 0 }}>
               {t.scenes.map((s, i) => (
-                <li key={i} className="row" style={{ padding: "14px 22px", gap: 12 }}>
+                <li key={i} className="scene-row">
                   <span className="muted" style={{ width: 20, fontVariantNumeric: "tabular-nums" }}>{i + 1}</span>
                   <select aria-label={`Karakter scene ${i + 1}`} className="select" style={{ width: 130 }} value={s.speaker} onChange={(e) => set({ scenes: t.scenes.map((x, j) => (j === i ? { ...x, speaker: e.target.value } : x)) })}>
                     {t.characters.map((c) => <option key={c} value={c}>{nameOf(c)}</option>)}
@@ -129,9 +148,11 @@ export default function EditTemplate({ params }: { params: Promise<{ id: string 
                   <input aria-label={`Tujuan scene ${i + 1}`} className="input" style={{ flex: "1 1 240px" }} value={s.purpose} placeholder="Apa yang terjadi di scene ini" onChange={(e) => set({ scenes: t.scenes.map((x, j) => (j === i ? { ...x, purpose: e.target.value } : x)) })} />
                   <input aria-label={`Durasi scene ${i + 1} dalam detik`} type="number" min={1} className="input" style={{ width: 80 }} value={s.seconds} onChange={(e) => set({ scenes: t.scenes.map((x, j) => (j === i ? { ...x, seconds: Number(e.target.value) } : x)) })} />
                   <span className="muted small">dtk</span>
+                  <span className="scene-actions">
                   <button className="btn quiet sm" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Naikkan scene ${i + 1}`}>Naik</button>
                   <button className="btn quiet sm" onClick={() => move(i, 1)} disabled={i === t.scenes.length - 1} aria-label={`Turunkan scene ${i + 1}`}>Turun</button>
                   <button className="btn quiet sm" onClick={() => set({ scenes: t.scenes.filter((_, j) => j !== i) })} disabled={t.scenes.length === 1} aria-label={`Hapus scene ${i + 1}`}>Hapus</button>
+                  </span>
                 </li>
               ))}
             </ol>

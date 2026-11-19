@@ -19,12 +19,21 @@ const SAMPLES: Record<string, Sample> = {
   "motion-graphic": { slot: 3, tag: "CARA KERJA", text: "Sistem nggak bisa bedain lo yang asli dengan orang yang pegang kodenya.", screenText: "SISTEM NGIRA|DIA ITU LO", keyword: "sistem", visual: { kind: "compare", items: ["Lo yang asli", "Orang yang pegang OTP"], icon: "users" } },
   "micro-drama": { slot: 2, tag: "EPISODE 3", text: "Malam itu, telepon dari nomor tak dikenal masuk ke HP Ayah.", screenText: "NOMOR|TAK DIKENAL", keyword: "nomor", visual: { kind: "call", items: ["Nomor tidak dikenal", "memanggil…"], icon: "phone" } },
   "anak-kepi": { slot: 2, tag: "CARA KERJA", text: "Waktu dicolok, listrik mengalir lewat kabel, lalu baterainya terisi lagi.", screenText: "COLOK,|LALU TERISI", keyword: "terisi", visual: { kind: "steps", items: ["Colok ke charger", "Listrik lewat kabel", "Baterai terisi"], icon: "plug" } },
+  // preset galeri
+  "cek-sekarang": { slot: 2, tag: "CARA NYALAIN", text: "Buka Setelan, Notifikasi, terus cari Riwayat notifikasi.", screenText: "RIWAYAT|NOTIFIKASI", keyword: "Riwayat", visual: { kind: "steps", items: ["Buka Setelan", "Pilih Notifikasi", "Nyalakan Riwayat notifikasi"], icon: "settings" } },
+  "arti-tanda": { slot: 3, tag: "LAMPU 2", text: "Normalnya lampu LOS mati. Kalau merah, sinyal kabel optik hilang.", screenText: "LOS MERAH?|SINYAL OPTIK ILANG", keyword: "merah", visual: { kind: "compare", items: ["Mati = normal", "Merah = sinyal optik hilang"], icon: "wifi" } },
+  "berita-cepat": { slot: 0, tag: "BARU TERJADI", text: "Ratusan ribu laporan gangguan masuk dalam beberapa jam.", screenText: "LAYANAN|TUMBANG GLOBAL", keyword: "tumbang", visual: { kind: "number", items: ["130.000+", "laporan gangguan dalam beberapa jam"], icon: "alert" } },
+  "mitos-fakta": { slot: 2, tag: "FAKTANYA", text: "HP sekarang berhenti mengisi otomatis saat baterai penuh.", screenText: "NGECAS SEMALAMAN|NGGAK MASALAH", keyword: "semalaman", visual: { kind: "compare", items: ["Mitos: baterai rusak", "Fakta: pengisian berhenti otomatis"], icon: "battery" } },
+  "top-3": { slot: 1, tag: "NOMOR 3", text: "Nomor tiga: lo bisa kunci chat tertentu pakai sidik jari.", screenText: "KUNCI CHAT|PAKAI SIDIK JARI", keyword: "kunci", visual: { kind: "statement", items: [], icon: "lock" } },
+  "pov-cerita": { slot: 1, tag: "POV", text: "Chat masuk dari nomor yang namanya mirip bank lo.", screenText: "POV: CHAT|DARI \"BANK\"", keyword: "bank", visual: { kind: "chat", items: ["Bank: Akun Anda diblokir. Klik link berikut.", "Kamu: Hah? Kok bisa?"], icon: "chat" } },
 };
 const DIALOG = SAMPLES["serial-dialog"];
 const SOLO = SAMPLES["motion-graphic"];
 
 function sampleFor(t: Template): Sample {
   if (SAMPLES[t.id]) return SAMPLES[t.id];
+  if (t.preset === "tanya-jawab") return DIALOG;
+  if (t.preset && SAMPLES[t.preset]) return SAMPLES[t.preset];
   return new Set(t.scenes.map((s) => s.speaker)).size > 1 ? { ...DIALOG, slot: 0 } : { ...SOLO, slot: 1 };
 }
 
@@ -79,7 +88,7 @@ async function main() {
         scenes: [scene],
         cues: cuesOf(s.text, sec),
         characters: chars.map((c) => ({ id: c.id, name: c.name, color: c.color, textColor: c.textColor })),
-        theme: { headerText: ch.headerText, tagline: ch.tagline, outroTeaser: ch.outroTeaser, outroFollow: ch.outroFollow, colors: ch.colors, grid: ch.grid, bgmVolume: 0, channelName: ch.name, font: ch.font },
+        theme: { headerText: ch.headerText, tagline: ch.tagline, outroTeaser: ch.outroTeaser, outroFollow: ch.outroFollow, colors: ch.colors, grid: ch.grid, bgmVolume: 0, channelName: ch.name, font: ch.font, layout: t.layout || ch.layout || "kartu", showHeader: !!ch.showHeader },
         episode: "",
         hookTitle: "",
         hookKeyword: "",

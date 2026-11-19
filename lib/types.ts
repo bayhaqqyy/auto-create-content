@@ -1,3 +1,6 @@
+/** Tampilan video: "kartu" = kartu gelap motion graphic; "layar" = latar terang penuh dengan HP besar (gaya EP.031/032); "teks" = teks besar di tengah ala caption. */
+export type Layout = "kartu" | "layar" | "teks";
+
 export type VisualKind = "question" | "statement" | "steps" | "compare" | "number" | "chat" | "notification" | "call" | "product" | "proscons" | "clip";
 
 export type Visual = {
@@ -65,6 +68,8 @@ export type Project = {
   durationTarget: number;
   audience: string;
   visualStyle: string;
+  /** paksa tampilan video untuk proyek ini (kosong = ikut template/channel) */
+  layout?: Layout;
   episode?: string;
   status: ProjectStatus;
   stage?: string;
@@ -101,6 +106,10 @@ export type Template = {
   rules: string[];
   /** paksa gaya visual untuk template ini (kosong = ikut channel) */
   visualMode?: "cards" | "3d";
+  /** paksa tampilan video (kosong = ikut channel) */
+  layout?: Layout;
+  /** id preset galeri asal template ini, kalau disalin dari galeri */
+  preset?: string;
   /** "affiliate" memakai data produk, bukan riset web */
   kind?: "edu" | "affiliate";
   /** jumlah produk yang dibahas (affiliate) */
@@ -167,6 +176,10 @@ export type Channel = {
   font: "jakarta" | "archivo";
   /** "cards" = kartu motion graphic seperti EP KodeKepo!; "3d" = gambar 3D AI per scene di belakang kartu */
   visualMode: "cards" | "3d";
+  /** tampilan video bawaan channel */
+  layout: Layout;
+  /** header kecil (nama channel + garis progres) di atas video. Bawaan mati: area atas tertutup kolom cari TikTok. */
+  showHeader: boolean;
   /** teks pill ajakan follow di outro */
   outroFollow: string;
   bgmPreset: "tech" | "ceria" | "none";

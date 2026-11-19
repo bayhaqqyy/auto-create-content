@@ -1,4 +1,4 @@
-import type { Channel, Character, Template } from "./types";
+import type { Channel, Character, Layout, Template, TemplateScene } from "./types";
 
 const COMMON_RULES = [
   "Cukup satu part. Jangan pernah menulis \"part 2\" atau \"bersambung\".",
@@ -159,7 +159,7 @@ export const DEFAULT_CHARACTERS: Character[] = [
     color: "#F6F8FC", textColor: "#0F1928", group: "duo" },
   { id: "narator", channelId: "kodekepo", name: "Narator", role: "Satu suara untuk Explainer Data, Tips, Listicle, dan Motion Graphic.", style: "Antusias tapi jelas", voice: "Kore",
     look: "", color: "#20DFF4", textColor: "#0F1928", group: "lain" },
-  { id: "pencerita", channelId: "kodekepo", name: "Pencerita", role: "Narator cerita Grup Keluarga.", style: "Hangat, sedikit misterius, seperti pendongeng", voice: "Zali",
+  { id: "pencerita", channelId: "kodekepo", name: "Pencerita", role: "Narator cerita Grup Keluarga.", style: "Hangat, sedikit misterius, seperti pendongeng", voice: "Sulafat",
     look: "", color: "#FEB759", textColor: "#0F1928", group: "lain" },
   { id: "kepi", channelId: "petualangan-kepi", name: "Kepi", role: "Robot kecil yang penasaran dan suka menjelajah.", style: "Ceria, energik", voice: "Leda",
     look: "small round friendly robot, glossy white body, lime green glowing eyes, tiny antenna",
@@ -190,6 +190,8 @@ export const DEFAULT_CHANNELS: Channel[] = [
     colors: { bg: "#0C1424", card: "#16233A", accent: "#A4FF19", accent2: "#FEB759", text: "#F6F8FC", muted: "#AEBBD0", outroBg: "#F6F8FC", outroText: "#0F1928" },
     font: "jakarta",
     visualMode: "cards",
+    layout: "kartu",
+    showHeader: false,
     grid: true,
     bgmPreset: "tech",
     bgmVolume: 0.1,
@@ -213,6 +215,8 @@ export const DEFAULT_CHANNELS: Channel[] = [
     colors: { bg: "#1B1A3A", card: "#2A2858", accent: "#FFC93C", accent2: "#7EE0FF", text: "#FFFFFF", muted: "#C9C6F0", outroBg: "#FFF6DE", outroText: "#1B1A3A" },
     font: "jakarta",
     visualMode: "3d",
+    layout: "kartu",
+    showHeader: false,
     grid: false,
     bgmPreset: "ceria",
     bgmVolume: 0.12,
@@ -227,3 +231,171 @@ export const GEMINI_VOICES = [
 ];
 
 
+
+/* ---------------- tampilan video ---------------- */
+
+export const LAYOUTS: { id: Layout; name: string; desc: string }[] = [
+  { id: "kartu", name: "Kartu gelap", desc: "Latar gelap brand, judul bab, kartu motion graphic. Cocok untuk explainer & berita." },
+  { id: "layar", name: "Layar HP terang", desc: "Latar terang penuh dengan HP besar di tengah. Cocok untuk tips yang bisa langsung dicek penonton." },
+  { id: "teks", name: "Teks besar", desc: "Kalimat besar di tengah layar, kata per kata. Cocok untuk daftar, fakta cepat, dan cerita POV." },
+];
+
+/* ---------------- galeri template (bisa dipakai channel mana pun) ---------------- */
+
+/** Peran di preset galeri. Saat disalin ke channel, peran dipetakan ke karakter channel itu. */
+export type PresetRole = "utama" | "penanya" | "penjawab";
+export type TemplatePreset = Omit<Template, "id" | "channelId" | "characters" | "scenes"> & {
+  id: string;
+  /** contoh topik, ditampilkan di galeri */
+  example: string;
+  scenes: (Omit<TemplateScene, "speaker"> & { speaker: PresetRole })[];
+};
+
+const HOOK_RULES = [
+  "Detik 0-2: kerugian atau kejutan yang langsung kena ke penonton, plus visual yang sama. Jangan dibuka dengan sapaan atau perintah.",
+  "Detik 2-5: janjikan satu hal yang baru dibuka di akhir supaya penonton bertahan.",
+  "Detik 5: langsung masuk isi, tanpa pengantar.",
+];
+
+export const TEMPLATE_LIBRARY: TemplatePreset[] = [
+  {
+    id: "cek-sekarang",
+    name: "Cek Sekarang",
+    description: "Satu setting atau trik yang bisa langsung dicoba penonton di HP-nya. Format paling ramai di KodeKepo!",
+    example: "Pesan WA yang dihapus masih bisa dibaca",
+    minSec: 45,
+    maxSec: 65,
+    layout: "layar",
+    scenes: [
+      { speaker: "utama", purpose: "Hook: kerugian/kejutan + visual layar yang dibahas (0-2 detik)", seconds: 3 },
+      { speaker: "utama", purpose: "Janji: satu hal penting yang dibuka di akhir", seconds: 3 },
+      { speaker: "utama", purpose: "Langkah persis: nama menu satu per satu, plus jalur merek lain", seconds: 12 },
+      { speaker: "utama", purpose: "Kenapa bisa: cara kerja teknologinya dengan bahasa awam", seconds: 10 },
+      { speaker: "utama", purpose: "Payoff jujur: syarat, batasan, atau peringatan", seconds: 10 },
+      { speaker: "utama", purpose: "Penutup: pertanyaan pancingan komentar", seconds: 5 },
+    ],
+    rules: [...HOOK_RULES, "Nama menu ditulis persis seperti di HP. Sebut kalau beda per merek atau versi.", ...COMMON_RULES],
+  },
+  {
+    id: "arti-tanda",
+    name: "Arti Tanda Misterius",
+    description: "Lampu, ikon, atau kode kecil di perangkat sehari-hari dan artinya. Pola video meteran & lampu modem.",
+    example: "Arti lampu di modem WiFi rumah",
+    minSec: 50,
+    maxSec: 70,
+    layout: "layar",
+    scenes: [
+      { speaker: "utama", purpose: "Hook: tanda yang bikin panik + akibatnya kalau salah paham", seconds: 4 },
+      { speaker: "utama", purpose: "Janji: satu cek yang sering menyelesaikan masalah", seconds: 3 },
+      { speaker: "utama", purpose: "Tanda pertama: normalnya bagaimana, kalau beda artinya apa", seconds: 11 },
+      { speaker: "utama", purpose: "Tanda kedua", seconds: 11 },
+      { speaker: "utama", purpose: "Tanda ketiga", seconds: 11 },
+      { speaker: "utama", purpose: "Payoff: kapan cukup dicoba sendiri, kapan harus lapor", seconds: 10 },
+      { speaker: "utama", purpose: "Penutup: tanya kondisi perangkat penonton sekarang", seconds: 4 },
+    ],
+    rules: [...HOOK_RULES, "Bedakan jelas: kapan cukup restart/coba sendiri, kapan harus hubungi resmi.", ...COMMON_RULES],
+  },
+  {
+    id: "berita-cepat",
+    name: "Berita Cepat",
+    description: "Kejadian yang lagi ramai, dijelaskan cara kerjanya dan dampaknya ke penonton.",
+    example: "Layanan Microsoft tumbang global",
+    minSec: 50,
+    maxSec: 70,
+    layout: "kartu",
+    scenes: [
+      { speaker: "utama", purpose: "Hook: angka atau kejadian paling besar dari berita", seconds: 4 },
+      { speaker: "utama", purpose: "Apa yang terjadi, kapan, siapa yang kena", seconds: 10 },
+      { speaker: "utama", purpose: "Kenapa bisa: cara kerja teknologinya", seconds: 13 },
+      { speaker: "utama", purpose: "Dampaknya ke penonton", seconds: 10 },
+      { speaker: "utama", purpose: "Yang bisa dilakukan sekarang", seconds: 10 },
+      { speaker: "utama", purpose: "Penutup: pertanyaan pancingan komentar", seconds: 5 },
+    ],
+    rules: [...HOOK_RULES, "Sebut tanggal dan sumber berita. Bedakan fakta resmi dan dugaan.", ...COMMON_RULES],
+  },
+  {
+    id: "mitos-fakta",
+    name: "Mitos vs Fakta",
+    description: "Patahkan anggapan umum yang salah dengan bukti dan cara kerjanya.",
+    example: "Ngecas HP semalaman bikin baterai rusak?",
+    minSec: 45,
+    maxSec: 65,
+    layout: "kartu",
+    scenes: [
+      { speaker: "utama", purpose: "Hook: mitos yang dipercaya banyak orang", seconds: 4 },
+      { speaker: "utama", purpose: "Kenapa orang percaya", seconds: 8 },
+      { speaker: "utama", purpose: "Faktanya, dengan bukti dari riset", seconds: 12 },
+      { speaker: "utama", purpose: "Cara kerja teknologinya", seconds: 12 },
+      { speaker: "utama", purpose: "Yang sebaiknya dilakukan", seconds: 9 },
+      { speaker: "utama", purpose: "Penutup: tanya mitos lain yang penonton dengar", seconds: 5 },
+    ],
+    rules: [...HOOK_RULES, ...COMMON_RULES],
+  },
+  {
+    id: "top-3",
+    name: "Top 3 Hitung Mundur",
+    description: "Tiga item, dari yang paling biasa ke yang paling mengejutkan.",
+    example: "3 fitur tersembunyi di WhatsApp",
+    minSec: 40,
+    maxSec: 60,
+    layout: "teks",
+    scenes: [
+      { speaker: "utama", purpose: "Hook: janji item nomor 1 paling mengejutkan", seconds: 4 },
+      { speaker: "utama", purpose: "Nomor 3", seconds: 11 },
+      { speaker: "utama", purpose: "Nomor 2", seconds: 11 },
+      { speaker: "utama", purpose: "Nomor 1, yang paling mengejutkan", seconds: 13 },
+      { speaker: "utama", purpose: "Penutup: tanya nomor berapa yang penonton belum tahu", seconds: 5 },
+    ],
+    rules: [...HOOK_RULES, "Satu item, satu scene. Jangan menghitung tanpa isi.", ...COMMON_RULES],
+  },
+  {
+    id: "pov-cerita",
+    name: "POV Cerita Singkat",
+    description: "Cerita orang pertama yang relate, pelajaran teknologinya di akhir.",
+    example: "POV: lo dapet chat dari nomor mirip bank",
+    minSec: 45,
+    maxSec: 70,
+    layout: "teks",
+    scenes: [
+      { speaker: "utama", purpose: "Hook: \"POV: ...\" momen paling menegangkan", seconds: 5 },
+      { speaker: "utama", purpose: "Kejadian berkembang", seconds: 12 },
+      { speaker: "utama", purpose: "Titik balik: tanda yang hampir terlewat", seconds: 12 },
+      { speaker: "utama", purpose: "Pelajaran teknologinya, cara kerja di baliknya", seconds: 12 },
+      { speaker: "utama", purpose: "Penutup: tanya pengalaman penonton", seconds: 5 },
+    ],
+    rules: [...HOOK_RULES, "Ceritanya fiksi, faktanya dari riset. Jangan menyebut orang atau merek nyata sebagai pelaku.", ...COMMON_RULES],
+  },
+  {
+    id: "tanya-jawab",
+    name: "Tanya Jawab Duo",
+    description: "Satu tokoh nanya, satu tokoh jawab. Butuh dua karakter di channel.",
+    example: "Kenapa OTP nggak boleh dikasih ke siapa pun",
+    minSec: 55,
+    maxSec: 75,
+    layout: "kartu",
+    scenes: [
+      { speaker: "penanya", purpose: "Hook: situasi atau pertanyaan yang relate", seconds: 4 },
+      { speaker: "penjawab", purpose: "Jawaban inti, langsung tanpa basa-basi", seconds: 9 },
+      { speaker: "penanya", purpose: "Pertanyaan lanjutan ala orang awam", seconds: 5 },
+      { speaker: "penjawab", purpose: "Cara kerja teknologinya, pakai analogi", seconds: 14 },
+      { speaker: "penanya", purpose: "\"Terus gimana?\"", seconds: 5 },
+      { speaker: "penjawab", purpose: "Langkah praktis atau dampaknya", seconds: 16 },
+      { speaker: "penjawab", purpose: "Penutup: pertanyaan pancingan komentar", seconds: 6 },
+    ],
+    rules: ["Suara tiap tokoh tidak boleh tertukar, termasuk di penutup.", ...HOOK_RULES, ...COMMON_RULES],
+  },
+];
+
+/** Salin preset galeri ke channel: peran dipetakan ke karakter channel itu. */
+export function presetToTemplate(preset: TemplatePreset, channelId: string, chars: Character[], id: string): Template {
+  const duo = chars.filter((c) => c.group === "duo");
+  const solo = chars.find((c) => c.group === "lain") || chars[0];
+  const map: Record<PresetRole, string> = {
+    utama: (solo || chars[0]).id,
+    penanya: (duo[0] || chars[0]).id,
+    penjawab: (duo[1] || chars[1] || chars[0]).id,
+  };
+  const scenes = preset.scenes.map((s) => ({ ...s, speaker: map[s.speaker] }));
+  const { example: _e, id: presetId, ...rest } = preset;
+  return { ...rest, id, channelId, preset: presetId, characters: [...new Set(scenes.map((s) => s.speaker))], scenes };
+}

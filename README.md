@@ -25,6 +25,19 @@ Pilih channel aktif di menu kiri. Semua halaman (buat konten, proyek, template, 
 
 Disamakan dengan episode yang sudah tayang: latar navy dengan grid 60px dan lingkaran dekoratif, font Plus Jakarta Sans, header "KODEKEPO!" dengan penghitung episode dan garis progres, tiap bab berupa pill tag dan judul dua baris (baris kedua warna aksen), kartu info (chat WhatsApp, notifikasi, panggilan masuk dengan waveform, langkah, perbandingan, angka), subtitle dalam kotak dengan label KEPO/PAHAM dan kata yang belum diucapkan redup, outro terang dengan logo, "Episode depan: kita kepoin teknologi lainnya", ajakan follow, dan kotak lime tagline. Frame pertama berupa judul besar seperti cover, karena di EP.021 hook di detik pertama terbukti berpengaruh. Musik latar dan SFX dibuat khusus (bukan stock) dan mengecil saat dialog.
 
+### Tampilan video & galeri template
+
+Ada tiga tampilan video, dipilih di brand kit (bawaan channel), di template, atau saat membuat konten:
+
+- **Kartu gelap**: latar gelap brand, judul bab, kartu motion graphic (gaya EP lama).
+- **Layar HP terang**: latar terang penuh dengan HP besar di tengah; isi scene (chat, notifikasi, langkah, angka) tampil di layar HP. Gaya EP.031/032 yang retensinya paling tinggi.
+- **Teks besar**: judul bab sangat besar di tengah dan subtitle besar tanpa kotak, cocok untuk daftar, fakta cepat, dan cerita POV.
+
+Header nama channel di atas video sekarang mati secara bawaan karena area itu tertutup kolom cari TikTok; bisa dinyalakan lagi di brand kit.
+
+Menu **Template** punya **Galeri template** yang bisa dipakai channel mana pun: Cek Sekarang, Arti Tanda Misterius, Berita Cepat, Mitos vs Fakta, Top 3 Hitung Mundur, POV Cerita Singkat, dan Tanya Jawab Duo.
+Saat ditambahkan, peran narator/penanya/penjawab otomatis diisi karakter channel aktif. Semua preset membawa aturan hook: detik 0-2 kerugian/kejutan plus visual, detik 2-5 janji payoff, detik 5 langsung isi.
+
 ### Gaya visual
 
 - **Kartu motion graphic**: semuanya dirender dari kode sesuai isi scene.

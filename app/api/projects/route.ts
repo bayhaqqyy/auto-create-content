@@ -26,6 +26,7 @@ export async function POST(req: Request) {
     durationTarget: Number(b.durationTarget) || t.minSec,
     audience: b.audience || "Gen Z",
     visualStyle: b.visualStyle === "3d" || b.visualStyle === "cards" ? b.visualStyle : "",
+    layout: ["kartu", "layar", "teks"].includes(b.layout) ? b.layout : undefined,
     episode: String(b.episode || "").trim().slice(0, 20) || undefined,
     status: "queued",
     stage: "Antre",
