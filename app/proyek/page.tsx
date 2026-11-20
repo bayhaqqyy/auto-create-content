@@ -5,14 +5,17 @@ import { api } from "../../components/api";
 import type { Project, Template } from "../../lib/types";
 import { useChannel } from "../../components/channel";
 
-const FILTERS = ["Semua", "Diproses", "Draft", "Review", "Tayang"] as const;
-const BUSY = ["queued", "researching", "writing", "voicing", "imaging", "rendering"];
+const FILTERS = ["Semua", "Perlu dijawab", "Cek naskah", "Cek video", "Diproses", "Disetujui", "Tayang", "Draft"] as const;
+const BUSY = ["queued", "asking", "researching", "writing", "voicing", "imaging", "rendering"];
 
 function statusOf(p: Project): { label: string; cls: string } {
   if (BUSY.includes(p.status)) return { label: "Diproses", cls: "" };
   if (p.status === "failed") return { label: "Gagal", cls: "warn" };
+  if (p.status === "brief") return { label: "Perlu dijawab", cls: "warn" };
+  if (p.status === "script_review") return { label: "Cek naskah", cls: "warn" };
   if (p.review === "tayang") return { label: "Tayang", cls: "dark" };
-  if (p.review === "review") return { label: "Review", cls: "warn" };
+  if (p.review === "approved") return { label: "Disetujui", cls: "" };
+  if (p.review === "review") return { label: "Cek video", cls: "warn" };
   return { label: "Draft", cls: "" };
 }
 

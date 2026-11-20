@@ -80,7 +80,16 @@ export type Source = { title: string; url: string; date?: string; verified: bool
 
 export type CheckItem = { ok: boolean; text: string };
 
-export type ProjectStatus = "queued" | "researching" | "writing" | "voicing" | "imaging" | "rendering" | "ready" | "draft" | "failed";
+/**
+ * Alur: asking (AI menyiapkan pertanyaan) → brief (menunggu jawaban) → researching/writing → script_review (menunggu persetujuan naskah)
+ * → voicing/imaging/rendering → ready (video menunggu persetujuan, lihat review).
+ */
+export type ProjectStatus = "queued" | "asking" | "brief" | "researching" | "writing" | "script_review" | "voicing" | "imaging" | "rendering" | "ready" | "draft" | "failed";
+
+/** Pertanyaan perancangan sebelum naskah ditulis. */
+export type BriefQuestion = { id: string; question: string; options: string[]; why?: string };
+export type Brief = { questions: BriefQuestion[]; answers?: Record<string, string>; note?: string; skipped?: boolean; answeredAt?: string };
+export type Revision = { at: string; target: "script" | "video"; note: string };
 
 export type Project = {
   id: string;
@@ -126,7 +135,12 @@ export type Project = {
   video?: string;
   srt?: string;
   views?: string;
-  review?: "draft" | "review" | "tayang";
+  /** draft → review (video menunggu persetujuan) → approved (siap diunggah) → tayang */
+  review?: "draft" | "review" | "approved" | "tayang";
+  brief?: Brief;
+  revisions?: Revision[];
+  approvedScriptAt?: string;
+  approvedVideoAt?: string;
 };
 
 export type TemplateScene = { speaker: string; purpose: string; seconds: number };

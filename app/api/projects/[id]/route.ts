@@ -6,7 +6,7 @@ import type { Project } from "../../../../lib/types";
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
-const BUSY = ["queued", "researching", "writing", "voicing", "imaging", "rendering"];
+const BUSY = ["queued", "asking", "researching", "writing", "voicing", "imaging", "rendering"];
 
 export async function GET(_: Request, { params }: Ctx) {
   const { id } = await params;

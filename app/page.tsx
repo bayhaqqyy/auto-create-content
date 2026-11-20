@@ -70,13 +70,14 @@ function CreatePage() {
   }, [currentTpl?.id, current?.id]);
   const ready = topic.trim().length >= 10 && !!currentTpl;
 
+  const [ask, setAsk] = useState(true);
   async function submit() {
     setBusy(true);
     setError("");
     try {
       const p = await api("/api/projects", {
         method: "POST",
-        json: { topic, templateId: tpl, platform, durationTarget: parseInt(dur), audience, visualStyle: style, layout, episode },
+        json: { topic, templateId: tpl, platform, durationTarget: parseInt(dur), audience, visualStyle: style, layout, episode, skipBrief: !ask },
       });
       router.push(`/proyek/${p.id}`);
     } catch (e: any) {
@@ -186,11 +187,14 @@ function CreatePage() {
       ) : null}
 
       <div className="actionbar">
-        <p>{currentTpl ? `${currentTpl.name} untuk ${platform}, ${dur}, penonton ${audience}.` : "Pilih template."}</p>
+        <p>{currentTpl ? `${currentTpl.name} untuk ${platform}, ${dur}, penonton ${audience}. Naskah dan video menunggu persetujuanmu sebelum lanjut.` : "Pilih template."}</p>
         <div className="row">
+          <label className="small row" style={{ gap: 8, color: "#C9D2E0" }}>
+            <input type="checkbox" checked={ask} onChange={(e) => setAsk(e.target.checked)} /> Tanya dulu sebelum menulis naskah
+          </label>
           {!ready ? <span className="small" style={{ color: "#C9D2E0" }}>Aktif setelah topik diisi.</span> : null}
           <button className="btn accent" disabled={!ready || busy} onClick={submit}>
-            {busy ? "Memulai…" : "Buat video"}
+            {busy ? "Memulai…" : ask ? "Mulai rancang" : "Tulis naskah"}
           </button>
         </div>
       </div>

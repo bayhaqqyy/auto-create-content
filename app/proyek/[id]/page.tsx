@@ -56,8 +56,9 @@ function AnimEditor({ s, layout, chars, onChange }: { s: Scene; layout: AnimLayo
   );
 }
 
-const BUSY = ["queued", "researching", "writing", "voicing", "imaging", "rendering"];
+const BUSY = ["queued", "asking", "researching", "writing", "voicing", "imaging", "rendering"];
 const BASE_STAGES: { key: string; label: string }[] = [
+  { key: "asking", label: "Menyiapkan pertanyaan" },
   { key: "researching", label: "Riset sumber" },
   { key: "writing", label: "Menulis naskah" },
   { key: "voicing", label: "Membuat suara" },
@@ -318,6 +319,117 @@ function ProductPanel({ x, onSaved, onCopy }: { x: Product; onSaved: (p: Product
   );
 }
 
+/** Tahap perancangan: jawab pertanyaan AI sebelum naskah ditulis. */
+function BriefForm({ p, onDone, onError }: { p: Project; onDone: (p: Project) => void; onError: (m: string) => void }) {
+  const qs = p.brief?.questions || [];
+  const [pick, setPick] = useState<Record<string, string>>(() => Object.fromEntries(qs.map((q) => [q.id, q.options[0] || ""])));
+  const [own, setOwn] = useState<Record<string, string>>({});
+  const [note, setNote] = useState("");
+  const [sending, setSending] = useState(false);
+  const answerOf = (id: string) => (pick[id] === "__own" ? (own[id] || "").trim() : pick[id]);
+  const missing = qs.filter((q) => !answerOf(q.id)).length;
+  async function send(skip: boolean) {
+    setSending(true);
+    try {
+      onDone(await api<Project>(`/api/projects/${p.id}/brief`, { method: "POST", json: { skip, note, answers: Object.fromEntries(qs.map((q) => [q.id, answerOf(q.id)])) } }));
+    } catch (e: any) {
+      onError(e.message);
+      setSending(false);
+    }
+  }
+  return (
+    <div className="stack" style={{ maxWidth: 760, gap: 20 }}>
+      <div className="stack" style={{ gap: 6 }}>
+        <h2 className="h2">Sebelum nulis naskah, jawab ini dulu</h2>
+        <p className="muted" style={{ margin: 0 }}>Jawabanmu dipakai untuk merancang naskah. Pilihan pertama adalah rekomendasi AI.</p>
+      </div>
+      {qs.map((q, i) => (
+        <fieldset key={q.id} className="card stack" style={{ margin: 0, gap: 10 }}>
+          <legend className="h3" style={{ padding: 0, float: "left", width: "100%" }}>{i + 1}. {q.question}</legend>
+          {q.why ? <p className="muted small" style={{ margin: 0 }}>{q.why}</p> : null}
+          {[...q.options, "__own"].map((o) => (
+            <label key={o} className="row" style={{ gap: 10, padding: "10px 14px", borderRadius: 12, border: pick[q.id] === o ? "2px solid var(--navy)" : "1px solid var(--line2)", cursor: "pointer" }}>
+              <input type="radio" name={q.id} checked={pick[q.id] === o} onChange={() => setPick({ ...pick, [q.id]: o })} />
+              {o === "__own" ? (
+                <input className="input" style={{ flex: 1 }} placeholder="Jawaban sendiri…" aria-label={`Jawaban sendiri untuk pertanyaan ${i + 1}`} value={own[q.id] || ""}
+                  onFocus={() => setPick({ ...pick, [q.id]: "__own" })} onChange={(e) => setOwn({ ...own, [q.id]: e.target.value })} />
+              ) : <span>{o}</span>}
+            </label>
+          ))}
+        </fieldset>
+      ))}
+      <div className="field">
+        <label htmlFor="brief-note">Catatan tambahan (opsional)</label>
+        <textarea id="brief-note" className="textarea" rows={3} placeholder="Mis. sebut merek HP Samsung, jangan terlalu seram untuk anak, pakai nama tokoh Raka…" value={note} onChange={(e) => setNote(e.target.value)} />
+      </div>
+      <div className="row">
+        <button className="btn primary" disabled={sending || missing > 0} onClick={() => send(false)}>{sending ? "Mengirim…" : "Tulis naskah"}</button>
+        <button className="btn quiet" disabled={sending} onClick={() => send(true)}>Lewati, langsung tulis</button>
+        {missing ? <span className="muted small">{missing} pertanyaan belum dijawab</span> : null}
+      </div>
+    </div>
+  );
+}
+
+/** Kotak persetujuan: naskah (sebelum video dibuat) atau video (sebelum diunggah). */
+function ApprovalCard({ p, target, beforeSend, onDone, onError }: { p: Project; target: "script" | "video"; beforeSend: () => Promise<boolean>; onDone: (p: Project) => void; onError: (m: string) => void }) {
+  const [note, setNote] = useState("");
+  const [sending, setSending] = useState(false);
+  const history = (p.revisions || []).filter((r) => r.target === target || target === "script");
+  async function go(kind: "approve" | "revise") {
+    if (!(await beforeSend())) return;
+    setSending(true);
+    try {
+      onDone(await api<Project>(`/api/projects/${p.id}/${kind}`, { method: "POST", json: { target, note } }));
+      setNote("");
+    } catch (e: any) {
+      onError(e.message);
+    }
+    setSending(false);
+  }
+  const script = target === "script";
+  return (
+    <div className="card stack" style={{ border: "2px solid var(--navy)", gap: 14 }}>
+      <div className="row between" style={{ alignItems: "flex-start" }}>
+        <div className="stack" style={{ gap: 4 }}>
+          <span className="tag warn" style={{ alignSelf: "flex-start" }}>{script ? "Menunggu persetujuan naskah" : "Menunggu persetujuan video"}</span>
+          <p style={{ margin: 0 }}>
+            {script
+              ? "Baca naskahnya di tab Naskah & storyboard. Edit langsung kalau perlu, atau tulis catatan revisi untuk AI. Suara dan video baru dibuat setelah kamu setujui."
+              : "Tonton videonya. Kalau sudah pas, setujui supaya siap diunggah. Kalau belum, tulis apa yang perlu diubah; naskahnya direvisi dulu dan kamu setujui lagi sebelum dirender ulang."}
+          </p>
+        </div>
+      </div>
+      {history.length ? (
+        <details>
+          <summary className="small muted" style={{ cursor: "pointer" }}>{history.length} revisi sebelumnya</summary>
+          <ol className="small" style={{ margin: "8px 0 0", paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4 }}>
+            {history.map((r) => <li key={r.at}>{r.target === "video" ? "Video: " : ""}{r.note}</li>)}
+          </ol>
+        </details>
+      ) : null}
+      <div className="field">
+        <label htmlFor={`rev-${target}`}>Catatan revisi</label>
+        <textarea id={`rev-${target}`} className="textarea" rows={3} placeholder={script ? "Mis. hook-nya kurang nendang, scene 3 terlalu panjang, ganti nama tokoh jadi Raka…" : "Mis. ekspresi di scene 2 kurang takut, penutupnya kepanjangan…"} value={note} onChange={(e) => setNote(e.target.value)} />
+      </div>
+      <div className="row">
+        <button className="btn primary" disabled={sending} onClick={() => go("approve")}>{script ? "Setujui naskah & buat video" : "Setujui video"}</button>
+        <button className="btn" disabled={sending || note.trim().length < 3 || !!p.demo} title={p.demo ? "Revisi otomatis butuh AI teks" : undefined} onClick={() => go("revise")}>Revisi dengan AI</button>
+      </div>
+    </div>
+  );
+}
+
+function ApprovedCard({ p }: { p: Project }) {
+  return (
+    <div className="card stack" style={{ border: "2px solid #2FB36B", gap: 8 }}>
+      <span className="tag" style={{ alignSelf: "flex-start", background: "#2FB36B", color: "#fff" }}>Disetujui, siap diunggah</span>
+      <p style={{ margin: 0 }}>Video ini sudah kamu setujui{p.approvedVideoAt ? ` pada ${new Date(p.approvedVideoAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}` : ""}. Unduh videonya dan caption untuk diunggah.</p>
+      <p className="muted small" style={{ margin: 0 }}>Upload otomatis ke TikTok, Instagram, Facebook, dan YouTube menyusul. Video berstatus disetujui akan jadi antrean upload otomatis.</p>
+    </div>
+  );
+}
+
 export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -359,6 +471,11 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     const t = setInterval(load, 1500);
     return () => clearInterval(t);
   }, [p?.status, load]);
+
+  useEffect(() => {
+    if (p?.status === "script_review") setTab("Naskah & storyboard");
+    if (p?.status === "ready") setTab("Video");
+  }, [p?.status]);
 
   const edit = (patch: Partial<Project>) => {
     setDraft((d) => (d ? { ...d, ...patch } : d));
@@ -441,10 +558,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
           </p>
           <h1 className="h1" style={{ fontSize: "clamp(28px, 4vw, 40px)" }}>{p.title || p.topic}</h1>
         </div>
-        {!busy && p.status !== "failed" ? (
+        {!busy && p.status !== "failed" && p.status !== "brief" ? (
           <div className="row">
             {dirty ? <button className="btn primary" onClick={save}>Simpan perubahan</button> : null}
-            <button className="btn" onClick={() => run("render")}>{p.video ? "Render ulang" : "Render video"}</button>
+            {p.status !== "script_review" ? <button className="btn" onClick={() => run("render")}>{p.video ? "Render ulang" : "Render video"}</button> : null}
             {p.video ? <a className="btn accent" href={file(p.id, p.video, true)}>Unduh video</a> : null}
           </div>
         ) : null}
@@ -454,6 +571,15 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
       {err ? <p className="banner" role="alert">{err}</p> : null}
 
       {busy ? <Progress p={p} /> : null}
+
+      {p.status === "brief" ? <BriefForm p={p} onDone={(d) => { setP(d); setDraft(d); }} onError={setErr} /> : null}
+      {p.status === "script_review" ? (
+        <ApprovalCard p={p} target="script" beforeSend={async () => !dirty || !!(await save())} onDone={(d) => { setP(d); setDraft(d); }} onError={setErr} />
+      ) : null}
+      {p.status === "ready" && p.video && p.kind !== "affiliate" && p.review !== "approved" && p.review !== "tayang" ? (
+        <ApprovalCard p={p} target="video" beforeSend={async () => !dirty || !!(await save())} onDone={(d) => { setP(d); setDraft(d); }} onError={setErr} />
+      ) : null}
+      {p.review === "approved" && !busy ? <ApprovedCard p={p} /> : null}
 
       {p.status === "failed" ? (
         <div className="stack" style={{ maxWidth: 760, gap: 20 }}>
@@ -468,7 +594,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         </div>
       ) : null}
 
-      {!busy && p.status !== "failed" ? (
+      {!busy && p.status !== "failed" && p.status !== "brief" ? (
         <div className="editor">
           <div className="col">
             <div className="seg" role="tablist" aria-label="Bagian konten" style={{ alignSelf: "flex-start" }}>
@@ -659,9 +785,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             <div className="card stack">
               <h2 className="h3">Publikasi</h2>
               <div className="seg" role="group" aria-label="Status publikasi">
-                {(["draft", "review", "tayang"] as const).map((r) => (
+                {(["draft", "review", "approved", "tayang"] as const).map((r) => (
                   <button key={r} aria-pressed={(draft.review || "draft") === r} onClick={() => edit({ review: r })}>
-                    {r === "draft" ? "Draft" : r === "review" ? "Review" : "Tayang"}
+                    {r === "draft" ? "Draft" : r === "review" ? "Review" : r === "approved" ? "Disetujui" : "Tayang"}
                   </button>
                 ))}
               </div>

@@ -10,7 +10,8 @@ import { hasApiKey, image, pcmToWav, tts, video, wavDuration, type RefImage } fr
 import { generateJson, hasTextAI, research } from "../lib/claude";
 import { AD_SCHEMA, AD_TEMPLATE_ID, adScenes, buildAdPrompt, demoAd, sanitizeAd, type AdResult } from "../lib/adscript";
 import { execFileSync } from "node:child_process";
-import { animCast, buildPrompt, demoScript, reviewPrompt, sanitizeScript, scriptSchema, SCRIPT_SCHEMA, type ScriptResult } from "../lib/script";
+import { animCast, buildPrompt, demoScript, revisePrompt, reviewPrompt, sanitizeScript, scriptSchema, type ScriptResult } from "../lib/script";
+import { BRIEF_SCHEMA, cleanQuestions, demoQuestions, questionsPrompt } from "../lib/brief";
 import { isAnimLayout, LOOK_PRESETS } from "../lib/anim";
 import { adChecks, runChecks } from "../lib/policy";
 import { allCues, toSrt } from "../lib/subtitle";
@@ -470,6 +471,62 @@ async function doRewrite(p: Project, sid: string) {
   await voiceScene(p, p.scenes[idx]);
 }
 
+/** Tahap perancangan: siapkan pertanyaan untuk pembuat konten. */
+async function doQuestions(p: Project) {
+  const t = getTemplate(p.templateId);
+  if (!t) throw new Error("Template tidak ditemukan");
+  const ch = channelOf(p);
+  const layout = layoutOf(p);
+  set(p, { status: "asking", stage: "Menyiapkan pertanyaan perancangan", progress: 0.05 });
+  let questions = demoQuestions(t, layout);
+  if (hasTextAI()) {
+    try {
+      const r = await generateJson<{ questions: any[] }>(questionsPrompt(p, t, ch, layout), BRIEF_SCHEMA);
+      const q = cleanQuestions(r.questions);
+      if (q.length >= 2) questions = q;
+    } catch (e) {
+      console.error("pertanyaan AI gagal, pakai bawaan", e);
+    }
+  }
+  set(p, { status: "brief", stage: "Jawab pertanyaan dulu supaya naskahnya terarah", progress: 0, brief: { questions } });
+}
+
+/** Revisi naskah dengan AI mengikuti catatan terakhir. Suara scene yang kalimatnya tidak berubah dipertahankan. */
+async function doRevise(p: Project) {
+  const t = getTemplate(p.templateId);
+  if (!t) throw new Error("Template tidak ditemukan");
+  const notes = (p.revisions || []).map((r) => r.note);
+  const note = notes[notes.length - 1];
+  if (!note) return;
+  if (!hasTextAI()) {
+    set(p, { stage: "Revisi otomatis butuh AI teks (Claude CLI). Ubah naskahnya langsung di editor." });
+    return;
+  }
+  const ch = channelOf(p);
+  const chars = getCharacters(ch.id);
+  const layout = layoutOf(p);
+  const castIds = animCast(chars).map((c) => c.id);
+  set(p, { status: "writing", stage: "Merevisi naskah sesuai catatan", progress: 0.2 });
+  const base = buildPrompt(p, t, chars, p.facts || [], ch, layout);
+  const current: ScriptResult = {
+    title: p.title || "", titleOptions: p.titleOptions || [], caption: p.caption || "", hashtags: p.hashtags || [],
+    coverText: p.coverText || "", coverKeyword: p.coverKeyword || "",
+    scenes: p.scenes.map(({ id: _i, audio: _a, durationSec: _d, image: _im, ...rest }) => rest as any),
+  };
+  let r = await generateJson<ScriptResult>(revisePrompt(base, current, note, notes.slice(0, -1)), scriptSchema(layout));
+  r = sanitizeScript(r, t, p.productIds || [], layout, castIds);
+  const dir = path.join(projectDir(p.id), "public");
+  const old = p.scenes;
+  const scenes: Scene[] = r.scenes.map((s, i) => {
+    const prev = old.find((o) => o.text === s.text && o.speaker === s.speaker);
+    return { ...s, id: `s${i + 1}`, audio: prev?.audio, durationSec: prev?.durationSec, image: prev?.image };
+  });
+  // hapus file suara yang tidak dipakai lagi
+  const keep = new Set(scenes.map((s) => s.audio).filter(Boolean));
+  for (const o of old) if (o.audio && !keep.has(o.audio)) fs.rmSync(path.join(dir, o.audio), { force: true });
+  set(p, { title: r.title, titleOptions: r.titleOptions, scenes, caption: r.caption, hashtags: r.hashtags, coverText: r.coverText, coverKeyword: r.coverKeyword });
+}
+
 async function main() {
   const p = getProject(id);
   if (!p) throw new Error("Proyek tidak ditemukan: " + id);
@@ -479,25 +536,38 @@ async function main() {
     if (step === "all") await doClips(p);
     if (step === "clip") await doClips(p, sceneId);
   } else {
+  if (step === "questions") return doQuestions(p);
   if (step === "all" || step === "script") {
     if (!(await doScript(p))) return;
   }
-  if (step === "all" || step === "voice") await doVoice(p, sceneId);
+  if (step === "revise") await doRevise(p);
+  if (step === "script" || step === "revise") {
+    // berhenti di sini: naskah menunggu persetujuan pembuat konten
+    refreshChecks(p);
+    set(p, { status: "script_review", stage: "Naskah menunggu persetujuanmu", progress: 0, error: undefined, approvedScriptAt: undefined });
+    return;
+  }
+  if (step === "all" || step === "voice" || step === "produce") await doVoice(p, sceneId);
   if (step === "rewrite") await doRewrite(p, sceneId);
-  if (step === "all" || step === "images") await doImages(p);
+  if (step === "all" || step === "images" || step === "produce") await doImages(p);
   if (step === "image") {
     if (!hasApiKey()) set(p, { stage: "Membuat gambar butuh GEMINI_API_KEY" });
     else await doImages(p, sceneId);
   }
   }
-  const rendered = step === "all" || step === "render";
+  const rendered = step === "all" || step === "render" || step === "produce";
   if (rendered) await doRender(p);
   refreshChecks(p);
+  const done = !!p.video && rendered;
+  // naskah yang belum pernah disetujui (mis. setelah tulis ulang satu scene) kembali menunggu persetujuan
+  const waiting = !done && !p.video && !p.approvedScriptAt && p.kind !== "affiliate";
   set(p, {
-    status: p.video && rendered ? "ready" : "draft",
-    stage: p.video && rendered ? "Video siap" : "Ada perubahan, render ulang untuk memperbarui video",
+    status: done ? "ready" : waiting ? "script_review" : "draft",
+    stage: done ? "Video siap, tinggal kamu tinjau" : waiting ? "Naskah menunggu persetujuanmu" : "Ada perubahan, render ulang untuk memperbarui video",
     progress: 1,
     error: undefined,
+    // video baru selalu ditinjau ulang sebelum boleh diunggah
+    ...(done ? { review: "review" as const, approvedVideoAt: undefined } : {}),
   });
 }
 

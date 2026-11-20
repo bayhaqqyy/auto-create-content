@@ -1,6 +1,7 @@
 import type { AnimLayout, Channel, Character, Layout, Product, Project, Scene, Template, VisualKind } from "./types";
 import { ICONS } from "./icons";
 import { animPromptSection, cleanAnim, isAnimLayout, LOOK_PRESETS } from "./anim";
+import { briefSection } from "./brief";
 
 export type ScriptResult = {
   title: string;
@@ -98,7 +99,7 @@ Penonton utama channel: ${ch.audience}
 Tagline: "${ch.tagline}"
 
 TOPIK: ${p.topic}
-PLATFORM: ${p.platform}. DURASI TARGET: sekitar ${p.durationTarget} detik (template ${t.minSec}-${t.maxSec} detik). PENONTON: ${p.audience}.
+${briefSection(p.brief)}PLATFORM: ${p.platform}. DURASI TARGET: sekitar ${p.durationTarget} detik (template ${t.minSec}-${t.maxSec} detik). PENONTON: ${p.audience}.
 Kecepatan bicara sekitar 2,6 kata per detik, jadi atur panjang tiap kalimat sesuai durasi scene.
 
 TEMPLATE: ${t.name}. ${t.description}
@@ -162,6 +163,20 @@ Cek satu per satu dan perbaiki kalau gagal:
 5. Panjang kalimat sesuai durasi scene, bahasa natural seperti orang bercerita.
 6. Penutup tuntas atau berupa pertanyaan pancingan komentar yang jelas; tidak menjanjikan "part 2".
 Balas hanya JSON.`;
+}
+
+/** Prompt revisi: naskah lengkap ditulis ulang mengikuti catatan pembuat konten. */
+export function revisePrompt(base: string, current: ScriptResult, note: string, history: string[] = []) {
+  return `${base}
+
+NASKAH SAAT INI (JSON):
+${JSON.stringify({ ...current, titleOptions: undefined }, null, 1)}
+
+${history.length ? `CATATAN REVISI SEBELUMNYA (sudah diterapkan, jangan dibatalkan):\n${history.map((h) => "- " + h).join("\n")}\n\n` : ""}CATATAN REVISI DARI PEMBUAT KONTEN:
+${note}
+
+TUGAS: perbaiki naskah sesuai catatan di atas. Bagian yang tidak disinggung catatan dipertahankan sebisa mungkin (kalimat, urutan, arahan).
+Tetap ikuti semua aturan channel, template, dan skema. Balas hanya JSON dengan skema yang sama.`;
 }
 
 /** Normalisasi hasil LLM supaya aman dipakai renderer. */

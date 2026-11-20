@@ -94,14 +94,17 @@ Render pertama kali akan mengunduh Chrome Headless Shell otomatis (lewat Remotio
 ## Cara kerja
 
 1. **Buat konten**: tulis topik, pilih template dan opsi.
-2. Pipeline jalan di proses terpisah (`scripts/run-pipeline.ts`), progresnya tampil di halaman proyek:
+2. **Rancang dulu**: AI menyiapkan 3-5 pertanyaan pilihan ganda (sudut hook, contoh kasus, tokoh, latar, penutup…) sesuai topik dan template. Jawabanmu, plus catatan tambahan, jadi keputusan wajib di prompt naskah. Pertanyaan bisa dilewati lewat kotak centang "Tanya dulu sebelum menulis naskah".
+3. **Persetujuan naskah**: naskah berhenti di status *Cek naskah*. Edit langsung di editor, atau tulis catatan revisi dan klik **Revisi dengan AI** (bisa berkali-kali; catatan lama tetap dipertahankan). Suara dan video baru dibuat setelah **Setujui naskah & buat video**.
+4. **Persetujuan video**: video yang selesai berstatus *Cek video*. **Setujui video** menandainya *Disetujui* (antrean upload otomatis nanti), atau tulis catatan revisi: naskah direvisi, kamu setujui lagi, lalu dirender ulang. Suara scene yang kalimatnya tidak berubah dipakai lagi.
+5. Pipeline jalan di proses terpisah (`scripts/run-pipeline.ts`), progresnya tampil di halaman proyek:
    - **Riset** dengan model teks Gemini + `google_search`. Sumber disimpan dan perlu kamu centang "Sudah saya cek".
    - **Naskah** dalam JSON terstruktur sesuai struktur scene dan aturan template.
    - **Suara** per scene dengan Gemini TTS, memakai voice dan gaya bicara karakter.
    - **Subtitle** maksimal 2 baris, kata kunci di-highlight lime, juga diekspor ke `.srt`.
    - **Render** dengan [Remotion](https://www.remotion.dev): 1080×1920, 30 fps, H.264 + AAC.
-3. **Editor**: ubah dialog, teks layar, kata highlight, jenis visual, atau upload klip Google Flow per scene, lalu **Render ulang**. Scene yang dialognya berubah otomatis dibuatkan suara baru.
-4. Unduh video, caption, `.srt`, dan semua prompt klip.
+6. **Editor**: ubah dialog, teks layar, kata highlight, jenis visual, atau upload klip Google Flow per scene, lalu **Render ulang**. Scene yang dialognya berubah otomatis dibuatkan suara baru.
+7. Unduh video, caption, `.srt`, dan semua prompt klip.
 
 Model bisa diganti lewat `GEMINI_TEXT_MODEL` dan `GEMINI_TTS_MODEL` di `.env.local` kalau Google merilis versi baru.
 
