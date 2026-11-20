@@ -24,12 +24,11 @@ export const AnimScene: React.FC<AnimSceneProps> = ({ scene, index, total, layou
   const [fontsReady, setFontsReady] = useState(false);
   const [handle] = useState(() => delayRender("font animasi"));
   useEffect(() => {
-    const want = ['400 80px "Anton"', '400 80px "Bungee"', '800 40px "Plus Jakarta Sans"', '700 40px "Plus Jakarta Sans"'];
-    const wait = (tries: number): Promise<unknown> =>
-      Promise.all(want.map((f) => document.fonts.load(f))).then(() =>
-        want.every((f) => document.fonts.check(f)) || tries <= 0 ? null : new Promise((r) => setTimeout(r, 100)).then(() => wait(tries - 1)),
-      );
-    wait(50).catch(() => null).then(() => {
+    // FontFace ditambahkan oleh komposisi induk; tunggu sampai keluarga font ini benar-benar terdaftar dan termuat
+    const families = ["Anton", "Bungee", "Plus Jakarta Sans"];
+    const loaded = () => families.every((fam) => [...(document.fonts as any)].some((f: FontFace) => f.family.replace(/"/g, "") === fam && f.status === "loaded"));
+    const wait = (tries: number): Promise<unknown> => (loaded() || tries <= 0 ? Promise.resolve() : new Promise((r) => setTimeout(r, 50)).then(() => wait(tries - 1)));
+    wait(200).catch(() => null).then(() => {
       setFontsReady(true);
       continueRender(handle);
     });
