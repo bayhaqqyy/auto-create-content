@@ -117,7 +117,7 @@ function CreatePage() {
               </span>
             </button>
           ))}
-          <a className="ch-card ch-new" href="/channel?baru=1">+ Channel baru</a>
+          <a className="ch-card ch-new" href="/channel/baru">+ Channel baru</a>
         </div>
       </section>
 
