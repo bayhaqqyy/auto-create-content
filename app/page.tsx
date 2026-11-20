@@ -8,6 +8,7 @@ import { useChannel } from "../components/channel";
 import type { Character, Template, Layout } from "../lib/types";
 import { LAYOUTS } from "../lib/defaults";
 import { ANIM_LAYOUTS } from "../lib/anim";
+import { StyleCover } from "../components/StyleCover";
 
 const QUICK: Record<string, string[]> = {
   kodekepo: ["Kode dial HP yang jarang diketahui", "Cara kerja kode di meteran listrik", "Kenapa bank di Indonesia sering diserang siber"],
@@ -117,7 +118,7 @@ function CreatePage() {
               </span>
             </button>
           ))}
-          <a className="ch-card ch-new" href="/channel?baru=1">+ Channel baru</a>
+          <a className="ch-card ch-new" href="/channel/baru">+ Channel baru</a>
         </div>
       </section>
 
@@ -156,7 +157,7 @@ function CreatePage() {
           {LAYOUTS.map((l) => (
             <label key={l.id} className={"layout-opt" + (layout === l.id ? " on" : "")}>
               <input type="radio" name="layout" checked={layout === l.id} onChange={() => setLayout(l.id as Layout)} />
-              <span className={`layout-thumb lt-${l.id}`} aria-hidden="true"><i /><b /><u /></span>
+              {current ? <span aria-hidden="true"><StyleCover ch={current} layout={l.id as Layout} width={110} /></span> : <span className={`layout-thumb lt-${l.id}`} aria-hidden="true"><i /><b /><u /></span>}
               <span className="layout-name">{l.name}{current?.layout === l.id ? " · bawaan" : ""}</span>
               <span className="muted small">{l.desc}</span>
             </label>

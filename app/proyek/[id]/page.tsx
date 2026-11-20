@@ -7,6 +7,7 @@ import type { Character, Product, Project, Scene, Template, VisualKind } from ".
 import { AFFILIATE_UPLOAD } from "../../../lib/policy";
 import { ANIM_CAMERA, ANIM_EVENTS, ANIM_MOODS, ANIM_POSES, ANIM_SETS, isAnimLayout, LOOK_PRESETS } from "../../../lib/anim";
 import type { AnimDirection, AnimLayout } from "../../../lib/types";
+import { Questions } from "../../../components/Questions";
 
 /** Arahan adegan animasi: set, kejadian, kamera, dan tokoh yang tampil. */
 function AnimEditor({ s, layout, chars, onChange }: { s: Scene; layout: AnimLayout; chars: Character[]; onChange: (a: AnimDirection) => void }) {
@@ -321,17 +322,11 @@ function ProductPanel({ x, onSaved, onCopy }: { x: Product; onSaved: (p: Product
 
 /** Tahap perancangan: jawab pertanyaan AI sebelum naskah ditulis. */
 function BriefForm({ p, onDone, onError }: { p: Project; onDone: (p: Project) => void; onError: (m: string) => void }) {
-  const qs = p.brief?.questions || [];
-  const [pick, setPick] = useState<Record<string, string>>(() => Object.fromEntries(qs.map((q) => [q.id, q.options[0] || ""])));
-  const [own, setOwn] = useState<Record<string, string>>({});
-  const [note, setNote] = useState("");
   const [sending, setSending] = useState(false);
-  const answerOf = (id: string) => (pick[id] === "__own" ? (own[id] || "").trim() : pick[id]);
-  const missing = qs.filter((q) => !answerOf(q.id)).length;
-  async function send(skip: boolean) {
+  async function send(answers: Record<string, string>, note: string, skip: boolean) {
     setSending(true);
     try {
-      onDone(await api<Project>(`/api/projects/${p.id}/brief`, { method: "POST", json: { skip, note, answers: Object.fromEntries(qs.map((q) => [q.id, answerOf(q.id)])) } }));
+      onDone(await api<Project>(`/api/projects/${p.id}/brief`, { method: "POST", json: { skip, note, answers } }));
     } catch (e: any) {
       onError(e.message);
       setSending(false);
@@ -343,30 +338,8 @@ function BriefForm({ p, onDone, onError }: { p: Project; onDone: (p: Project) =>
         <h2 className="h2">Sebelum nulis naskah, jawab ini dulu</h2>
         <p className="muted" style={{ margin: 0 }}>Jawabanmu dipakai untuk merancang naskah. Pilihan pertama adalah rekomendasi AI.</p>
       </div>
-      {qs.map((q, i) => (
-        <fieldset key={q.id} className="card stack" style={{ margin: 0, gap: 10 }}>
-          <legend className="h3" style={{ padding: 0, float: "left", width: "100%" }}>{i + 1}. {q.question}</legend>
-          {q.why ? <p className="muted small" style={{ margin: 0 }}>{q.why}</p> : null}
-          {[...q.options, "__own"].map((o) => (
-            <label key={o} className="row" style={{ gap: 10, padding: "10px 14px", borderRadius: 12, border: pick[q.id] === o ? "2px solid var(--navy)" : "1px solid var(--line2)", cursor: "pointer" }}>
-              <input type="radio" name={q.id} checked={pick[q.id] === o} onChange={() => setPick({ ...pick, [q.id]: o })} />
-              {o === "__own" ? (
-                <input className="input" style={{ flex: 1 }} placeholder="Jawaban sendiri…" aria-label={`Jawaban sendiri untuk pertanyaan ${i + 1}`} value={own[q.id] || ""}
-                  onFocus={() => setPick({ ...pick, [q.id]: "__own" })} onChange={(e) => setOwn({ ...own, [q.id]: e.target.value })} />
-              ) : <span>{o}</span>}
-            </label>
-          ))}
-        </fieldset>
-      ))}
-      <div className="field">
-        <label htmlFor="brief-note">Catatan tambahan (opsional)</label>
-        <textarea id="brief-note" className="textarea" rows={3} placeholder="Mis. sebut merek HP Samsung, jangan terlalu seram untuk anak, pakai nama tokoh Raka…" value={note} onChange={(e) => setNote(e.target.value)} />
-      </div>
-      <div className="row">
-        <button className="btn primary" disabled={sending || missing > 0} onClick={() => send(false)}>{sending ? "Mengirim…" : "Tulis naskah"}</button>
-        <button className="btn quiet" disabled={sending} onClick={() => send(true)}>Lewati, langsung tulis</button>
-        {missing ? <span className="muted small">{missing} pertanyaan belum dijawab</span> : null}
-      </div>
+      <Questions questions={p.brief?.questions || []} busy={sending} submitLabel={sending ? "Mengirim…" : "Tulis naskah"} skipLabel="Lewati, langsung tulis"
+        notePlaceholder="Mis. sebut merek HP Samsung, jangan terlalu seram untuk anak, pakai nama tokoh Raka…" onSubmit={send} />
     </div>
   );
 }

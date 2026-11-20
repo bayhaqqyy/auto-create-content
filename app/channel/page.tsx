@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../components/api";
 import { useChannel } from "../../components/channel";
-import { BrandPreview } from "../../components/BrandPreview";
+import { StylePreview } from "../../components/StylePreview";
 import type { Channel } from "../../lib/types";
 import { LAYOUTS } from "../../lib/defaults";
 
@@ -213,7 +213,7 @@ export default function BrandKit() {
         <aside>
           <div className="card stack">
             <h2 className="h3">Pratinjau</h2>
-            <BrandPreview ch={ch} logoUrl={fileUrl(ch.logo)} />
+            <StylePreview ch={ch} />
           </div>
           <button className="btn primary" onClick={save} disabled={!dirty}>Simpan brand kit</button>
           {msg && !dirty ? <p className="small" role="status" style={{ margin: 0 }}>{msg}</p> : null}
