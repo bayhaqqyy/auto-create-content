@@ -8,6 +8,7 @@ import { StylePreview } from "../../../components/StylePreview";
 import { DEFAULT_CHANNELS, GEMINI_VOICES, LAYOUTS, TEMPLATE_LIBRARY } from "../../../lib/defaults";
 import { LOOK_PRESETS } from "../../../lib/anim";
 import type { BriefQuestion, Channel, Layout } from "../../../lib/types";
+import { StyleCover } from "../../../components/StyleCover";
 
 type KitChar = { name: string; role: string; style: string; voice: string; look: string; lookPreset?: string };
 type Kit = Partial<Channel> & { characters?: KitChar[]; alur?: string[]; demo?: boolean };
@@ -138,7 +139,7 @@ export default function NewChannel() {
                 {LAYOUTS.map((l) => (
                   <label key={l.id} className={"layout-opt" + (kit.layout === l.id ? " on" : "")}>
                     <input type="radio" name="k-layout" checked={kit.layout === l.id} onChange={() => set({ layout: l.id as Layout })} />
-                    <span className={`layout-thumb lt-${l.id}`} aria-hidden="true"><i /><b /><u /></span>
+                    {preview ? <span aria-hidden="true"><StyleCover ch={preview} layout={l.id as Layout} width={110} /></span> : <span className={`layout-thumb lt-${l.id}`} aria-hidden="true"><i /><b /><u /></span>}
                     <span className="layout-name">{l.name}</span>
                   </label>
                 ))}
