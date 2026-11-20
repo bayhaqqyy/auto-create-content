@@ -87,3 +87,35 @@ export function briefSection(b?: Brief) {
   if (b.note) lines.push(`- Catatan tambahan: ${b.note}`);
   return lines.length ? `KEPUTUSAN DARI PEMBUAT KONTEN (wajib diikuti):\n${lines.join("\n")}\n` : "";
 }
+
+/* ---------- pemilihan alur otomatis ---------- */
+
+export const PICK_SCHEMA = {
+  type: "object",
+  properties: { templateId: { type: "string" }, reason: { type: "string" } },
+  required: ["templateId", "reason"],
+};
+
+export function pickPrompt(topic: string, ch: Channel, list: Template[]) {
+  return `Kamu produser channel "${ch.name}" (${ch.niche}). Pilih SATU alur video yang paling cocok untuk topik ini.
+
+TOPIK: ${topic}
+
+ALUR CHANNEL:
+${list.map((t) => `- id=${t.id}: ${t.name}. ${t.description}${(t as any).example ? ` Contoh: ${(t as any).example}` : ""}`).join("\n")}
+
+Pertimbangkan alur mana yang membuat topik ini paling menarik ditonton sampai habis dan paling jujur dengan isinya.
+Balas JSON: templateId (persis salah satu id di atas) dan reason (satu kalimat bahasa Indonesia).`;
+}
+
+/** Cadangan tanpa AI: cocokkan kata di topik dengan nama/deskripsi alur. */
+export function pickByWords(topic: string, list: Template[]) {
+  const words = topic.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3);
+  let best = list[0], score = -1;
+  for (const t of list) {
+    const hay = `${t.name} ${t.description}`.toLowerCase();
+    const s = words.filter((w) => hay.includes(w)).length;
+    if (s > score) (best = t), (score = s);
+  }
+  return best;
+}

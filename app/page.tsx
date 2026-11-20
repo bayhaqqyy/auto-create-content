@@ -35,7 +35,7 @@ function CreatePage() {
   const [topic, setTopic] = useState(sp.get("topik") || "");
   const [templates, setTemplates] = useState<Template[] | null>(null);
   const [chars, setChars] = useState<Character[]>([]);
-  const { current } = useChannel();
+  const { channels, current, setCurrent } = useChannel();
   const [tpl, setTpl] = useState(sp.get("template") || "");
   const [episode, setEpisode] = useState("");
   const [platform, setPlatform] = useState("TikTok");
@@ -55,7 +55,7 @@ function CreatePage() {
       .then((d) => {
         setTemplates(d.templates);
         setChars(d.characters);
-        setTpl((t) => (d.templates.some((x: Template) => x.id === t) ? t : d.templates[0]?.id || ""));
+        setTpl((t) => (d.templates.some((x: Template) => x.id === t) ? t : "auto"));
       })
       .catch((e) => setError(e.message));
   }, [current?.id]);
@@ -64,11 +64,13 @@ function CreatePage() {
   }, []);
 
   const currentTpl = useMemo(() => templates?.find((t) => t.id === tpl), [templates, tpl]);
+  // style bawaan ikut channel; tetap bisa diganti
   useEffect(() => {
-    if (currentTpl || current) setStyle(currentTpl?.visualMode || current?.visualMode || "cards");
-    if (currentTpl || current) setLayout(currentTpl?.layout || current?.layout || "kartu");
-  }, [currentTpl?.id, current?.id]);
-  const ready = topic.trim().length >= 10 && !!currentTpl;
+    if (!current) return;
+    setStyle(current.visualMode || "cards");
+    setLayout(current.layout || "kartu");
+  }, [current?.id]);
+  const ready = topic.trim().length >= 10 && !!templates?.length;
 
   const [ask, setAsk] = useState(true);
   async function submit() {
@@ -77,7 +79,7 @@ function CreatePage() {
     try {
       const p = await api("/api/projects", {
         method: "POST",
-        json: { topic, templateId: tpl, platform, durationTarget: parseInt(dur), audience, visualStyle: style, layout, episode, skipBrief: !ask },
+        json: { topic, channelId: current?.id, templateId: tpl, platform, durationTarget: parseInt(dur), audience, visualStyle: style, layout, episode, skipBrief: !ask },
       });
       router.push(`/proyek/${p.id}`);
     } catch (e: any) {
@@ -98,10 +100,30 @@ function CreatePage() {
           Belum ada GEMINI_API_KEY, jadi suara masih hening dan gambar/klip 3D tidak dibuat. Isi kuncinya di <code>.env</code> untuk suara asli.
         </p>
       ) : null}
+      <section className="stack" style={{ gap: 16 }} aria-labelledby="h-channel">
+        <h1 className="h1" id="h-channel">Buat video untuk channel apa?</h1>
+        <p className="lead" style={{ margin: 0 }}>Aturan bahasa, alur, suara, musik, dan brand otomatis ikut channel yang dipilih.</p>
+        <div className="ch-pick">
+          {(channels || []).map((c) => (
+            <button type="button" key={c.id} className="ch-card" aria-pressed={current?.id === c.id} onClick={() => setCurrent(c.id)}
+              style={{ ["--c-bg" as any]: c.colors.bg, ["--c-acc" as any]: c.colors.accent, ["--c-text" as any]: c.colors.text }}>
+              <span className="ch-swatch" aria-hidden="true">
+                {c.logo ? <img src={`/api/channels/${c.id}/file/${c.logo}`} alt="" /> : <b>{c.name.slice(0, 1)}</b>}
+              </span>
+              <span className="stack" style={{ gap: 4, minWidth: 0 }}>
+                <span className="tpl-name">{c.name}</span>
+                <span className="muted small">{c.tagline || c.niche}</span>
+                <span className="muted small">Style: {LAYOUTS.find((l) => l.id === c.layout)?.name || "Kartu"}</span>
+              </span>
+            </button>
+          ))}
+          <a className="ch-card ch-new" href="/channel?baru=1">+ Channel baru</a>
+        </div>
+      </section>
+
       <section className="stack" style={{ gap: 16 }}>
-        <p className="muted small" style={{ margin: 0 }}>{current ? `Channel: ${current.name}` : "Memuat channel…"}</p>
-        <h1 className="h1">Mau bahas apa hari ini?</h1>
-        <label htmlFor="topik" className="lead">Tulis topiknya sejelas mungkin. Riset, naskah, suara, dan videonya dibuat dari sini.</label>
+        <h2 className="h2">Mau bahas apa?</h2>
+        <label htmlFor="topik" className="muted" style={{ margin: 0 }}>Tulis topiknya sejelas mungkin. Alur yang paling cocok dipilih otomatis dari aturan {current?.name || "channel"}.</label>
         <textarea
           id="topik"
           className="textarea topic"
@@ -118,42 +140,32 @@ function CreatePage() {
             </button>
           ))}
         </div>
+        {templates && templates.length ? (
+          <p className="muted small" style={{ margin: 0 }}>
+            Alur {current?.name}: {templates.map((t) => t.name).join(", ")}.{" "}
+            <a href="/template">Atur alur</a>
+          </p>
+        ) : templates ? (
+          <p className="card" style={{ margin: 0 }}>Channel ini belum punya alur. <a href="/template">Tambahkan alur</a> dulu.</p>
+        ) : null}
       </section>
 
-      <section className="stack" style={{ gap: 18 }} aria-labelledby="h-template">
-        <div className="row between" style={{ alignItems: "flex-end" }}>
-          <h2 className="h2" id="h-template">Pilih template</h2>
-          <div className="legend" aria-label="Warna scene per karakter">
-            {chars.map((c) => (
-              <span key={c.id}>
-                <i style={{ background: c.id === "paham" ? "#0F1928" : c.color }} />
-                {c.name}
-              </span>
-            ))}
-          </div>
-        </div>
-        {templates === null && !error ? <p className="muted">Memuat template…</p> : null}
-        {templates && templates.length === 0 ? (
-          <p className="card" style={{ margin: 0 }}>
-            Channel ini belum punya template. <a href="/template">Buat template</a> dulu.
-          </p>
-        ) : null}
-        <div className="tpl-grid">
-          {templates?.map((t) => (
-            <button type="button" key={t.id} className="tpl" aria-pressed={tpl === t.id} onClick={() => setTpl(t.id)}>
-              <TplPreview t={t} chars={chars} />
-              <span className="stack" style={{ gap: 6, minWidth: 0 }}>
-                <span className="tpl-name">{t.name}</span>
-                <span className="muted" style={{ fontSize: 14 }}>{t.description}</span>
-                <span className="muted small">
-                  {t.minSec}–{t.maxSec} detik
-                </span>
-              </span>
-            </button>
+      <section className="stack" style={{ gap: 18 }} aria-labelledby="h-style">
+        <h2 className="h2" id="h-style">Style visual</h2>
+        <div className="layout-pick" role="radiogroup" aria-labelledby="h-style">
+          {LAYOUTS.map((l) => (
+            <label key={l.id} className={"layout-opt" + (layout === l.id ? " on" : "")}>
+              <input type="radio" name="layout" checked={layout === l.id} onChange={() => setLayout(l.id as Layout)} />
+              <span className={`layout-thumb lt-${l.id}`} aria-hidden="true"><i /><b /><u /></span>
+              <span className="layout-name">{l.name}{current?.layout === l.id ? " · bawaan" : ""}</span>
+              <span className="muted small">{l.desc}</span>
+            </label>
           ))}
         </div>
+        {ANIM_LAYOUTS.includes(layout as any) ? null : (
+          <Seg label="Latar scene" opts={["Kartu motion graphic", "Gambar 3D AI"]} value={style === "3d" ? "Gambar 3D AI" : "Kartu motion graphic"} onChange={(v) => setStyle(v === "Gambar 3D AI" ? "3d" : "cards")} />
+        )}
       </section>
-
 
       <section className="stack" style={{ gap: 18 }}>
         <h2 className="h2">Atur hasilnya</h2>
@@ -161,23 +173,11 @@ function CreatePage() {
           <Seg label="Platform" opts={["TikTok", "Reels", "Shorts"]} value={platform} onChange={setPlatform} />
           <Seg label="Durasi" opts={["45 detik", "60 detik", "75 detik"]} value={dur} onChange={setDur} />
           <Seg label="Penonton" opts={["Gen Z", "Umum (FB)"]} value={audience} onChange={setAudience} />
-          <div className="field" style={{ width: 220 }}>
-            <label htmlFor="lay">Tampilan</label>
-            <select id="lay" className="select" value={layout} onChange={(e) => setLayout(e.target.value as Layout)}>
-              {LAYOUTS.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </select>
-          </div>
-          {ANIM_LAYOUTS.includes(layout as any) ? null : <Seg label="Visual" opts={["Kartu motion graphic", "Gambar 3D AI"]} value={style === "3d" ? "Gambar 3D AI" : "Kartu motion graphic"} onChange={(v) => setStyle(v === "Gambar 3D AI" ? "3d" : "cards")} />}
           <div className="field" style={{ width: 160 }}>
             <label htmlFor="ep">Nomor episode</label>
             <input id="ep" className="input" placeholder="EP.026" value={episode} onChange={(e) => setEpisode(e.target.value)} />
           </div>
         </div>
-        <p className="muted small" style={{ margin: 0, maxWidth: "72ch" }}>
-          {style === "3d"
-            ? "Tiap scene dapat gambar 3D dari Gemini sesuai referensi karakter, lalu kartu dan subtitle ditaruh di atasnya. Klip Google Flow buatanmu tetap bisa diupload per scene di editor."
-            : "Kartu, judul bab, dan subtitle dirender sesuai brand kit channel. Klip atau gambar buatanmu bisa diupload per scene di editor."}
-        </p>
       </section>
 
       {error ? (
@@ -187,7 +187,7 @@ function CreatePage() {
       ) : null}
 
       <div className="actionbar">
-        <p>{currentTpl ? `${currentTpl.name} untuk ${platform}, ${dur}, penonton ${audience}. Naskah dan video menunggu persetujuanmu sebelum lanjut.` : "Pilih template."}</p>
+        <p>{current ? `${current.name}, ${LAYOUTS.find((l) => l.id === layout)?.name}, ${platform} ${dur}. Naskah dan video menunggu persetujuanmu sebelum lanjut.` : "Pilih channel."}</p>
         <div className="row">
           <label className="small row" style={{ gap: 8, color: "#C9D2E0" }}>
             <input type="checkbox" checked={ask} onChange={(e) => setAsk(e.target.checked)} /> Tanya dulu sebelum menulis naskah

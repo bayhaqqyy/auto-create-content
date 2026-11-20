@@ -372,7 +372,7 @@ function BriefForm({ p, onDone, onError }: { p: Project; onDone: (p: Project) =>
 }
 
 /** Kotak persetujuan: naskah (sebelum video dibuat) atau video (sebelum diunggah). */
-function ApprovalCard({ p, target, beforeSend, onDone, onError }: { p: Project; target: "script" | "video"; beforeSend: () => Promise<boolean>; onDone: (p: Project) => void; onError: (m: string) => void }) {
+function ApprovalCard({ p, target, beforeSend, onDone, onError, alur, onAlur }: { p: Project; target: "script" | "video"; beforeSend: () => Promise<boolean>; onDone: (p: Project) => void; onError: (m: string) => void; alur?: Template[]; onAlur?: (id: string) => void }) {
   const [note, setNote] = useState("");
   const [sending, setSending] = useState(false);
   const history = (p.revisions || []).filter((r) => r.target === target || target === "script");
@@ -400,6 +400,15 @@ function ApprovalCard({ p, target, beforeSend, onDone, onError }: { p: Project; 
           </p>
         </div>
       </div>
+      {script && alur && alur.length > 1 ? (
+        <div className="row" style={{ gap: 10, alignItems: "center" }}>
+          <label htmlFor="alur" className="small" style={{ fontWeight: 700 }}>Alur</label>
+          <select id="alur" className="select" style={{ maxWidth: 280 }} value={p.templateId} onChange={(e) => onAlur?.(e.target.value)}>
+            {alur.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+          {p.templateReason ? <span className="muted small" style={{ flex: "1 1 240px" }}>{p.templateReason}</span> : null}
+        </div>
+      ) : null}
       {history.length ? (
         <details>
           <summary className="small muted" style={{ cursor: "pointer" }}>{history.length} revisi sebelumnya</summary>
@@ -443,6 +452,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [err, setErr] = useState("");
   const [notFound, setNotFound] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [alur, setAlur] = useState<Template[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -459,7 +469,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     load();
   }, [load]);
   useEffect(() => {
-    if (p?.channelId) api(`/api/templates?channel=${p.channelId}`).then((d) => setChars(d.characters)).catch(() => {});
+    if (p?.channelId) api(`/api/templates?channel=${p.channelId}`).then((d) => { setChars(d.characters); setAlur(d.templates.filter((t: Template) => t.id !== "product-ad")); }).catch(() => {});
     if (p?.channelId && p.kind === "affiliate")
       api(`/api/products?channel=${p.channelId}`).then((d) => setProducts(d.products.filter((x: Product) => p.productIds?.includes(x.id)))).catch(() => {});
   }, [p?.channelId]);
@@ -574,7 +584,14 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
       {p.status === "brief" ? <BriefForm p={p} onDone={(d) => { setP(d); setDraft(d); }} onError={setErr} /> : null}
       {p.status === "script_review" ? (
-        <ApprovalCard p={p} target="script" beforeSend={async () => !dirty || !!(await save())} onDone={(d) => { setP(d); setDraft(d); }} onError={setErr} />
+        <ApprovalCard p={p} target="script" beforeSend={async () => !dirty || !!(await save())} onDone={(d) => { setP(d); setDraft(d); }} onError={setErr}
+          alur={alur} onAlur={async (tid) => {
+            if (!confirm("Ganti alur? Naskah akan ditulis ulang dengan alur ini.")) return;
+            try {
+              await api<Project>(`/api/projects/${id}`, { method: "PATCH", json: { ...(draft || {}), templateId: tid } });
+              await run("script");
+            } catch (e: any) { setErr(e.message); }
+          }} />
       ) : null}
       {p.status === "ready" && p.video && p.kind !== "affiliate" && p.review !== "approved" && p.review !== "tayang" ? (
         <ApprovalCard p={p} target="video" beforeSend={async () => !dirty || !!(await save())} onDone={(d) => { setP(d); setDraft(d); }} onError={setErr} />

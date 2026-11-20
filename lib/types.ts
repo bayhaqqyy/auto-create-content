@@ -110,6 +110,10 @@ export type Project = {
   updatedAt: string;
   topic: string;
   templateId: string;
+  /** alur dipilih otomatis oleh AI dari alur channel (dikunci setelah naskah ditulis) */
+  autoTemplate?: boolean;
+  /** alasan AI memilih alur itu */
+  templateReason?: string;
   platform: string;
   durationTarget: number;
   audience: string;

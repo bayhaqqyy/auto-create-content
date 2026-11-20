@@ -1,4 +1,4 @@
-import { getTemplate, listProjects, newId, saveProject } from "../../../lib/store";
+import { getTemplate, getTemplates, listProjects, newId, saveProject } from "../../../lib/store";
 import { startJob } from "../../../lib/jobs";
 import type { Project } from "../../../lib/types";
 export const dynamic = "force-dynamic";
@@ -10,8 +10,10 @@ export function GET() {
 export async function POST(req: Request) {
   const b = await req.json().catch(() => ({}));
   const topic = String(b.topic || "").trim();
-  const t = getTemplate(String(b.templateId || ""));
-  if (!t) return Response.json({ error: "Pilih template dulu." }, { status: 400 });
+  // alur dipilih otomatis dari alur milik channel kalau templateId "auto"
+  const auto = !b.templateId || b.templateId === "auto";
+  const t = auto ? getTemplates().find((x) => x.channelId === b.channelId && x.id !== "product-ad") : getTemplate(String(b.templateId));
+  if (!t) return Response.json({ error: auto ? "Channel ini belum punya alur. Tambahkan alur dulu." : "Alur tidak ditemukan." }, { status: 400 });
   if (topic.length < 10) return Response.json({ error: "Tulis topik minimal satu kalimat (10 karakter)." }, { status: 400 });
   const now = new Date().toISOString();
   const p: Project = {
@@ -22,6 +24,7 @@ export async function POST(req: Request) {
     updatedAt: now,
     topic,
     templateId: t.id,
+    autoTemplate: auto || undefined,
     platform: b.platform || "TikTok",
     durationTarget: Number(b.durationTarget) || t.minSec,
     audience: b.audience || "Gen Z",

@@ -42,14 +42,14 @@ export default function Templates() {
     <div className="wrap">
       <div className="row between" style={{ alignItems: "flex-end", gap: 24 }}>
         <div className="stack" style={{ gap: 10, flex: "1 1 400px" }}>
-          <h1 className="h1">Template</h1>
-          <p className="lead">Struktur yang dipakai setiap kali kamu buat konten di {current?.name || "channel ini"}. Ubah sekali, konten berikutnya ikut.</p>
+          <h1 className="h1">Alur {current?.name || "channel"}</h1>
+          <p className="lead">Format video milik {current?.name || "channel ini"}. Saat kamu buat konten, AI memilih alur yang paling cocok dengan topik, lalu menulis dengan aturan bahasa, suara, dan brand channel ini.</p>
         </div>
-        <button className="btn primary" onClick={() => create()} disabled={!!busy}>Buat template kosong</button>
+        <button className="btn primary" onClick={() => create()} disabled={!!busy}>Buat alur kosong</button>
       </div>
       {err ? <p className="banner" role="alert">{err}</p> : null}
-      {list === null && !err ? <p className="muted">Memuat template…</p> : null}
-      {list && list.length === 0 ? <p className="card" style={{ margin: 0 }}>Belum ada template di channel ini. Pilih dari galeri di bawah atau buat template kosong.</p> : null}
+      {list === null && !err ? <p className="muted">Memuat alur…</p> : null}
+      {list && list.length === 0 ? <p className="card" style={{ margin: 0 }}>Belum ada alur di channel ini. Pilih dari galeri di bawah atau buat alur kosong.</p> : null}
       {list && list.length ? (
         <div className="card flush list">
           {list.map((t) => {
@@ -66,10 +66,10 @@ export default function Templates() {
                 <div style={{ flex: "0 1 240px" }}>
                   <div style={{ fontWeight: 500 }}>{t.scenes.length} scene, {t.minSec}–{t.maxSec} detik</div>
                   <div className="muted small">Karakter: {t.characters.map((c) => chars.find((x) => x.id === c)?.name || c).join(", ")}</div>
-                  <div className="muted small">Tampilan: {layoutName(t.layout)}</div>
+                  
                 </div>
                 <div className="small" style={{ flex: "0 1 150px", color: used ? "var(--ink2)" : "var(--muted)" }}>{used ? `Dipakai di ${used} proyek` : "Belum dipakai"}</div>
-                <Link className="btn quiet sm" href={`/template/${t.id}`} aria-label={`Edit template ${t.name}`}>Edit</Link>
+                <Link className="btn quiet sm" href={`/template/${t.id}`} aria-label={`Edit alur ${t.name}`}>Edit</Link>
               </div>
             );
           })}
@@ -79,8 +79,8 @@ export default function Templates() {
       {library.length ? (
         <section className="stack" style={{ gap: 14, marginTop: 28 }} aria-labelledby="galeri">
           <div className="stack" style={{ gap: 6 }}>
-            <h2 id="galeri" className="h2">Galeri template</h2>
-            <p className="muted" style={{ margin: 0 }}>Format siap pakai untuk channel mana pun. Saat ditambahkan, peran narator/penanya/penjawab otomatis diisi karakter {current?.name || "channel ini"}, lalu bisa kamu ubah.</p>
+            <h2 id="galeri" className="h2">Galeri alur</h2>
+            <p className="muted" style={{ margin: 0 }}>Bahan awal untuk alur channel. Saat ditambahkan, peran narator/penanya/penjawab diisi karakter {current?.name || "channel ini"}; bahasanya tetap mengikuti aturan channel.</p>
           </div>
           <div className="gallery">
             {library.map((p) => (
@@ -89,13 +89,13 @@ export default function Templates() {
                   <span className={`layout-thumb lt-${p.layout || "kartu"}`} aria-hidden="true"><i /><b /><u /></span>
                   <div className="stack" style={{ gap: 4 }}>
                     <h3 className="h3" style={{ margin: 0 }}>{p.name}</h3>
-                    <span className="muted small">{layoutName(p.layout)} · {p.scenes.length} scene · {p.minSec}–{p.maxSec} dtk</span>
+                    <span className="muted small">Cocok dengan style {layoutName(p.layout)} · {p.scenes.length} scene · {p.minSec}–{p.maxSec} dtk</span>
                   </div>
                 </div>
                 <p style={{ margin: 0 }}>{p.description}</p>
                 <p className="muted small" style={{ margin: 0 }}>Contoh: {p.example}</p>
                 <div className="row">
-                  <button className="btn quiet sm" onClick={() => create(p.id)} disabled={!!busy} aria-label={`Tambahkan template ${p.name} ke ${current?.name || "channel ini"}`}>
+                  <button className="btn quiet sm" onClick={() => create(p.id)} disabled={!!busy} aria-label={`Tambahkan alur ${p.name} ke ${current?.name || "channel ini"}`}>
                     {busy === p.id ? "Menambahkan…" : "Tambahkan ke channel"}
                   </button>
                 </div>

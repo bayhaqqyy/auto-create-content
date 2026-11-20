@@ -35,7 +35,7 @@ export default function EditTemplate({ params }: { params: Promise<{ id: string 
     setErr("");
     try {
       await api(`/api/templates/${id}`, { method: "PUT", json: t });
-      setMsg("Template disimpan.");
+      setMsg("Alur disimpan.");
       setTimeout(() => setMsg(""), 2500);
     } catch (e: any) {
       setErr(e.message);
@@ -62,9 +62,9 @@ export default function EditTemplate({ params }: { params: Promise<{ id: string 
     <div className="wrap" style={{ maxWidth: 1200 }}>
       <div className="stack" style={{ gap: 10 }}>
         <nav aria-label="Breadcrumb" className="small">
-          <Link href="/template">Template</Link> <span className="muted">/ {t.name}</span>
+          <Link href="/template">Alur channel</Link> <span className="muted">/ {t.name}</span>
         </nav>
-        <h1 className="h1">{t.name || "Template baru"}</h1>
+        <h1 className="h1">{t.name || "Alur baru"}</h1>
       </div>
       {err ? <p className="banner" role="alert">{err}</p> : null}
       <div className="editor">
@@ -90,32 +90,7 @@ export default function EditTemplate({ params }: { params: Promise<{ id: string 
                 <input id="mx" type="number" min={10} className="input" value={t.maxSec} onChange={(e) => set({ maxSec: Number(e.target.value) })} />
               </div>
             </div>
-            <div className="field" style={{ maxWidth: 320 }}>
-              <label htmlFor="vm">Gaya visual</label>
-              <select id="vm" className="select" value={t.visualMode || ""} onChange={(e) => set({ visualMode: (e.target.value || undefined) as Template["visualMode"] })}>
-                <option value="">Ikut brand kit channel</option>
-                <option value="cards">Kartu motion graphic</option>
-                <option value="3d">Gambar 3D AI per scene</option>
-              </select>
-            </div>
-            <fieldset style={{ border: 0, margin: 0, padding: 0 }} className="stack">
-              <legend className="label" style={{ marginBottom: 8 }}>Tampilan video</legend>
-              <div className="layout-pick">
-                <label className={"layout-opt" + (!t.layout ? " on" : "")}>
-                  <input type="radio" name="layout" checked={!t.layout} onChange={() => set({ layout: undefined })} />
-                  <span className="layout-name">Ikut brand kit</span>
-                  <span className="muted small">Pakai tampilan bawaan channel.</span>
-                </label>
-                {LAYOUTS.map((l) => (
-                  <label key={l.id} className={"layout-opt" + (t.layout === l.id ? " on" : "")}>
-                    <input type="radio" name="layout" checked={t.layout === l.id} onChange={() => set({ layout: l.id as Layout })} />
-                    <span className={`layout-thumb lt-${l.id}`} aria-hidden="true"><i /><b /><u /></span>
-                    <span className="layout-name">{l.name}</span>
-                    <span className="muted small">{l.desc}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
+            <p className="muted small" style={{ margin: 0 }}>Style visual dipilih saat membuat konten (bawaannya dari brand kit channel), jadi alur ini bisa dipakai dengan style apa pun.</p>
             <fieldset style={{ border: 0, margin: 0, padding: 0 }} className="stack">
               <legend className="label" style={{ marginBottom: 8 }}>Karakter</legend>
               <div className="row">

@@ -262,3 +262,12 @@ table.t tr:last-child td { border-bottom: 0; }
 .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
 .gallery-item { display: flex; flex-direction: column; gap: 8px; padding: 18px; border: 1.5px solid var(--line, #dfe3ea); border-radius: 16px; background: #fff; }
 .gallery-item .row { margin-top: auto; }
+
+/* pilih channel di Buat konten */
+.ch-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.ch-card { display: flex; gap: 14px; align-items: center; text-align: left; padding: 14px; border-radius: 16px; border: 1px solid var(--line2); background: var(--light, #fff); cursor: pointer; font: inherit; color: inherit; text-decoration: none; }
+.ch-card[aria-pressed="true"] { border: 2px solid var(--navy); box-shadow: 0 0 0 3px rgba(164, 255, 25, 0.5); }
+.ch-swatch { flex: none; width: 56px; height: 56px; border-radius: 14px; background: var(--c-bg); display: grid; place-items: center; overflow: hidden; border: 3px solid var(--c-acc); }
+.ch-swatch img { width: 100%; height: 100%; object-fit: contain; }
+.ch-swatch b { color: var(--c-acc); font-size: 26px; font-weight: 800; }
+.ch-new { justify-content: center; border-style: dashed; color: var(--muted); font-weight: 600; min-height: 86px; }

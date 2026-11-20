@@ -5,13 +5,13 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { channelDir, getChannel, getCharacters, getProducts, saveProducts, getProject, getTemplate, listProjects, projectDir, ROOT, saveProject } from "../lib/store";
+import { channelDir, getChannel, getCharacters, getProducts, saveProducts, getProject, getTemplate, getTemplates, listProjects, projectDir, ROOT, saveProject } from "../lib/store";
 import { hasApiKey, image, pcmToWav, tts, video, wavDuration, type RefImage } from "../lib/gemini";
 import { generateJson, hasTextAI, research } from "../lib/claude";
 import { AD_SCHEMA, AD_TEMPLATE_ID, adScenes, buildAdPrompt, demoAd, sanitizeAd, type AdResult } from "../lib/adscript";
 import { execFileSync } from "node:child_process";
 import { animCast, buildPrompt, demoScript, revisePrompt, reviewPrompt, sanitizeScript, scriptSchema, type ScriptResult } from "../lib/script";
-import { BRIEF_SCHEMA, cleanQuestions, demoQuestions, questionsPrompt } from "../lib/brief";
+import { BRIEF_SCHEMA, cleanQuestions, demoQuestions, pickByWords, pickPrompt, PICK_SCHEMA, questionsPrompt } from "../lib/brief";
 import { isAnimLayout, LOOK_PRESETS } from "../lib/anim";
 import { adChecks, runChecks } from "../lib/policy";
 import { allCues, toSrt } from "../lib/subtitle";
@@ -123,6 +123,7 @@ async function doClips(p: Project, only?: string) {
 }
 
 async function doScript(p: Project) {
+  await pickTemplate(p);
   const t = getTemplate(p.templateId);
   if (!t) throw new Error("Template tidak ditemukan");
   const ch = channelOf(p);
@@ -471,8 +472,33 @@ async function doRewrite(p: Project, sid: string) {
   await voiceScene(p, p.scenes[idx]);
 }
 
+/** Pilih alur dari alur milik channel sesuai topik (sekali saja, lalu dikunci). */
+async function pickTemplate(p: Project) {
+  if (!p.autoTemplate || p.templateReason) return;
+  const ch = channelOf(p);
+  const list = getTemplates(ch.id).filter((t) => t.id !== "product-ad");
+  if (list.length <= 1) {
+    set(p, { templateReason: "Satu-satunya alur channel ini." });
+    return;
+  }
+  set(p, { stage: "Memilih alur yang paling cocok" });
+  let chosen = pickByWords(p.topic, list);
+  let reason = "Dipilih dari kecocokan kata dengan topik.";
+  if (hasTextAI()) {
+    try {
+      const r = await generateJson<{ templateId: string; reason: string }>(pickPrompt(p.topic, ch, list), PICK_SCHEMA);
+      const hit = list.find((t) => t.id === r.templateId);
+      if (hit) (chosen = hit), (reason = r.reason);
+    } catch (e) {
+      console.error("pilih alur gagal, pakai cadangan", e);
+    }
+  }
+  set(p, { templateId: chosen.id, templateReason: reason, durationTarget: Math.min(Math.max(p.durationTarget, chosen.minSec), chosen.maxSec) });
+}
+
 /** Tahap perancangan: siapkan pertanyaan untuk pembuat konten. */
 async function doQuestions(p: Project) {
+  await pickTemplate(p);
   const t = getTemplate(p.templateId);
   if (!t) throw new Error("Template tidak ditemukan");
   const ch = channelOf(p);
