@@ -5,15 +5,17 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { channelDir, getChannel, getCharacters, getProducts, saveProducts, getProject, getTemplate, listProjects, projectDir, ROOT, saveProject } from "../lib/store";
+import { channelDir, getChannel, getCharacters, getProducts, saveProducts, getProject, getTemplate, getTemplates, listProjects, projectDir, ROOT, saveProject } from "../lib/store";
 import { hasApiKey, image, pcmToWav, tts, video, wavDuration, type RefImage } from "../lib/gemini";
 import { generateJson, hasTextAI, research } from "../lib/claude";
 import { AD_SCHEMA, AD_TEMPLATE_ID, adScenes, buildAdPrompt, demoAd, sanitizeAd, type AdResult } from "../lib/adscript";
 import { execFileSync } from "node:child_process";
-import { buildPrompt, demoScript, sanitizeScript, SCRIPT_SCHEMA, type ScriptResult } from "../lib/script";
+import { animCast, buildPrompt, demoScript, revisePrompt, reviewPrompt, sanitizeScript, scriptSchema, type ScriptResult } from "../lib/script";
+import { BRIEF_SCHEMA, cleanQuestions, demoQuestions, pickByWords, pickPrompt, PICK_SCHEMA, questionsPrompt } from "../lib/brief";
+import { isAnimLayout, LOOK_PRESETS } from "../lib/anim";
 import { adChecks, runChecks } from "../lib/policy";
 import { allCues, toSrt } from "../lib/subtitle";
-import type { Channel, Character, Project, Scene } from "../lib/types";
+import type { Channel, Character, Layout, Project, Scene } from "../lib/types";
 import { DEFAULT_CHANNELS } from "../lib/defaults";
 
 const [id, step = "all", sceneId] = process.argv.slice(2);
@@ -121,16 +123,28 @@ async function doClips(p: Project, only?: string) {
 }
 
 async function doScript(p: Project) {
+  await pickTemplate(p);
   const t = getTemplate(p.templateId);
   if (!t) throw new Error("Template tidak ditemukan");
   const ch = channelOf(p);
   const chars = getCharacters(ch.id);
+  const layout = layoutOf(p);
+  const castIds = animCast(chars).map((c) => c.id);
   let result: ScriptResult;
   if (!hasTextAI()) {
     set(p, { status: "researching", stage: "Mode demo: memakai naskah contoh", progress: 0.1, demo: true });
-    result = demoScript(ch.id);
+    result = demoScript(ch.id, layout);
     p.facts = [];
     p.sources = [];
+  } else if (t.kind === "cerita") {
+    // cerita fiksi / motivasi: tidak ada klaim fakta, jadi tidak perlu riset web
+    p.facts = [];
+    p.sources = [];
+    set(p, { status: "writing", stage: "Menulis cerita", progress: 0.15, demo: false });
+    const base = buildPrompt(p, t, chars, [], ch, layout);
+    const draft = await generateJson<ScriptResult>(base, scriptSchema(layout));
+    set(p, { status: "writing", stage: "Memeriksa alur dan konsistensi cerita", progress: 0.22 });
+    result = await generateJson<ScriptResult>(reviewPrompt(base, sanitizeScript(draft, t, [], layout, castIds)), scriptSchema(layout));
   } else {
     set(p, { status: "researching", stage: "Riset sumber", progress: 0.05, demo: false });
     const r = await research(p.topic);
@@ -146,9 +160,14 @@ async function doScript(p: Project) {
     p.facts = r.facts;
     p.sources = r.sources.slice(0, 8).map((s) => ({ ...s, verified: false }));
     set(p, { status: "writing", stage: `Menulis naskah (${r.sources.length} sumber ditemukan)`, progress: 0.2 });
-    result = await generateJson<ScriptResult>(buildPrompt(p, t, chars, r.facts, ch), SCRIPT_SCHEMA);
+    const base = buildPrompt(p, t, chars, r.facts, ch, layout);
+    result = await generateJson<ScriptResult>(base, scriptSchema(layout));
+    if (isAnimLayout(layout)) {
+      set(p, { status: "writing", stage: "Memeriksa alur dan arahan animasi", progress: 0.25 });
+      result = await generateJson<ScriptResult>(reviewPrompt(base, sanitizeScript(result, t, [], layout, castIds)), scriptSchema(layout));
+    }
   }
-  result = sanitizeScript(result, t, p.productIds || []);
+  result = sanitizeScript(result, t, p.productIds || [], layout, castIds);
   const scenes: Scene[] = result.scenes.map((s, i) => ({ ...s, id: `s${i + 1}` }));
   set(p, {
     title: result.title,
@@ -158,9 +177,20 @@ async function doScript(p: Project) {
     hashtags: result.hashtags,
     coverText: result.coverText,
     coverKeyword: result.coverKeyword,
+    // arahan animasi hanya cocok untuk tampilannya sendiri, jadi tampilan proyek dikunci
+    layout: isAnimLayout(layout) ? layout : p.layout,
     progress: 0.3,
   });
   return true;
+}
+
+/** Tampilan tokoh kartun: preset + karakter channel (pakai look2d sendiri, atau preset sesuai urutan). */
+function looksFor(ch: Channel) {
+  const looks: Record<string, any> = {};
+  for (const [id, l] of Object.entries(LOOK_PRESETS)) looks[id] = l;
+  const order = ["pemuda", "pemudi-hijab", "pemuda-kaos", "pemudi", "bapak-tua", "ibu-tua", "bapak"];
+  getCharacters(ch.id).forEach((c, i) => (looks[c.id] = c.look2d || LOOK_PRESETS[order[i % order.length]]));
+  return looks;
 }
 
 /** Samakan kerasnya suara antar scene (RMS sekitar -18 dBFS, puncak dibatasi -1 dBFS). */
@@ -266,6 +296,10 @@ async function imageScene(p: Project, s: Scene) {
   s.image = file;
 }
 
+export function layoutOf(p: Project): Layout {
+  return p.layout || getTemplate(p.templateId)?.layout || channelOf(p).layout || "kartu";
+}
+
 export function visualModeOf(p: Project): "cards" | "3d" {
   if (p.visualStyle === "3d" || p.visualStyle === "cards") return p.visualStyle;
   return getTemplate(p.templateId)?.visualMode || channelOf(p).visualMode;
@@ -274,6 +308,7 @@ export function visualModeOf(p: Project): "cards" | "3d" {
 async function doImages(p: Project, only?: string) {
   if (!hasApiKey()) return; // mode demo: tetap motion graphic
   if (!only && visualModeOf(p) !== "3d") return;
+  if (isAnimLayout(layoutOf(p))) return; // tampilan animasi digambar sendiri, tidak butuh gambar AI
   const list = p.scenes.filter((s) => (only ? s.id === only : !s.image && s.visual.kind !== "clip" && s.visual.kind !== "product"));
   for (let i = 0; i < list.length; i++) {
     set(p, { status: "imaging", stage: `Membuat gambar 3D scene ${i + 1} dari ${list.length}`, progress: 0.5 + (0.2 * i) / list.length });
@@ -304,7 +339,10 @@ async function doRender(p: Project) {
     logo = "brand-" + ch.logo;
     fs.copyFileSync(path.join(cdir, ch.logo), path.join(pub, logo));
   }
-  let bgm: string | undefined = ch.bgmPreset === "none" ? undefined : `audio/bgm-${ch.bgmPreset}.wav`;
+  const lay = layoutOf(p);
+  // tampilan horor & motivasi punya musik latar sendiri kecuali channel memakai musik upload atau mematikan musik
+  const preset = lay === "horor" || lay === "motivasi" ? lay : ch.bgmPreset;
+  let bgm: string | undefined = ch.bgmPreset === "none" ? undefined : `audio/bgm-${preset}.wav`;
   if (ch.bgm && fs.existsSync(path.join(cdir, ch.bgm))) {
     bgm = "brand-" + ch.bgm;
     fs.copyFileSync(path.join(cdir, ch.bgm), path.join(pub, bgm));
@@ -338,6 +376,8 @@ async function doRender(p: Project) {
       bgmVolume: ch.bgmVolume,
       channelName: ch.name,
       font: ch.font,
+      layout: layoutOf(p),
+      showHeader: !!ch.showHeader,
     },
     episode: p.episode || "",
     hookTitle: p.coverText || p.title || "",
@@ -345,6 +385,8 @@ async function doRender(p: Project) {
     hookKeyword: p.coverKeyword || "",
     logo,
     bgm,
+    looks: isAnimLayout(lay) ? looksFor(ch) : undefined,
+    videoTitle: p.title || "",
   };
   const browserExecutable = process.env.REMOTION_BROWSER || null;
   const composition = await selectComposition({ serveUrl, id: "KodeKepoVideo", inputProps, browserExecutable });
@@ -417,15 +459,98 @@ async function doRewrite(p: Project, sid: string) {
   }
   set(p, { status: "writing", stage: `Menulis ulang scene ${idx + 1}`, progress: 0.3 });
   const ch = channelOf(p);
-  const base = buildPrompt(p, t, getCharacters(ch.id), p.facts || [], ch);
-  const ctx = p.scenes.map((s, i) => `${i + 1}. [${s.speaker}] ${s.text}`).join("\n");
+  const layout = layoutOf(p);
+  const chars = getCharacters(ch.id);
+  const base = buildPrompt(p, t, chars, p.facts || [], ch, layout);
+  const ctx = p.scenes.map((s, i) => `${i + 1}. [${s.speaker}] ${s.text}${s.anim ? ` (set ${s.anim.set}, tokoh ${s.anim.cast.map((c) => c.who).join(", ")})` : ""}`).join("\n");
   const one = await generateJson<ScriptResult["scenes"][number]>(
     `${base}\n\nNASKAH SAAT INI:\n${ctx}\n\nTulis ulang HANYA scene ${idx + 1} (speaker tetap ${p.scenes[idx].speaker}) supaya lebih nyambung dan menarik. Balas JSON satu scene.`,
-    (SCRIPT_SCHEMA.properties.scenes as any).items,
+    scriptSchema(layout).properties.scenes.items,
   );
-  const clean = sanitizeScript({ ...demoScript(), scenes: [{ ...one, speaker: p.scenes[idx].speaker }] }, t, p.productIds || []).scenes[0];
+  const clean = sanitizeScript({ ...demoScript(), scenes: [{ ...one, speaker: p.scenes[idx].speaker }] }, t, p.productIds || [], layout, animCast(chars).map((c) => c.id)).scenes[0];
   p.scenes[idx] = { ...p.scenes[idx], ...clean, audio: p.scenes[idx].audio, durationSec: p.scenes[idx].durationSec, image: p.scenes[idx].image };
   await voiceScene(p, p.scenes[idx]);
+}
+
+/** Pilih alur dari alur milik channel sesuai topik (sekali saja, lalu dikunci). */
+async function pickTemplate(p: Project) {
+  if (!p.autoTemplate || p.templateReason) return;
+  const ch = channelOf(p);
+  const list = getTemplates(ch.id).filter((t) => t.id !== "product-ad");
+  if (list.length <= 1) {
+    set(p, { templateReason: "Satu-satunya alur channel ini." });
+    return;
+  }
+  set(p, { stage: "Memilih alur yang paling cocok" });
+  let chosen = pickByWords(p.topic, list);
+  let reason = "Dipilih dari kecocokan kata dengan topik.";
+  if (hasTextAI()) {
+    try {
+      const r = await generateJson<{ templateId: string; reason: string }>(pickPrompt(p.topic, ch, list), PICK_SCHEMA);
+      const hit = list.find((t) => t.id === r.templateId);
+      if (hit) (chosen = hit), (reason = r.reason);
+    } catch (e) {
+      console.error("pilih alur gagal, pakai cadangan", e);
+    }
+  }
+  set(p, { templateId: chosen.id, templateReason: reason, durationTarget: Math.min(Math.max(p.durationTarget, chosen.minSec), chosen.maxSec) });
+}
+
+/** Tahap perancangan: siapkan pertanyaan untuk pembuat konten. */
+async function doQuestions(p: Project) {
+  await pickTemplate(p);
+  const t = getTemplate(p.templateId);
+  if (!t) throw new Error("Template tidak ditemukan");
+  const ch = channelOf(p);
+  const layout = layoutOf(p);
+  set(p, { status: "asking", stage: "Menyiapkan pertanyaan perancangan", progress: 0.05 });
+  let questions = demoQuestions(t, layout);
+  if (hasTextAI()) {
+    try {
+      const r = await generateJson<{ questions: any[] }>(questionsPrompt(p, t, ch, layout), BRIEF_SCHEMA);
+      const q = cleanQuestions(r.questions);
+      if (q.length >= 2) questions = q;
+    } catch (e) {
+      console.error("pertanyaan AI gagal, pakai bawaan", e);
+    }
+  }
+  set(p, { status: "brief", stage: "Jawab pertanyaan dulu supaya naskahnya terarah", progress: 0, brief: { questions } });
+}
+
+/** Revisi naskah dengan AI mengikuti catatan terakhir. Suara scene yang kalimatnya tidak berubah dipertahankan. */
+async function doRevise(p: Project) {
+  const t = getTemplate(p.templateId);
+  if (!t) throw new Error("Template tidak ditemukan");
+  const notes = (p.revisions || []).map((r) => r.note);
+  const note = notes[notes.length - 1];
+  if (!note) return;
+  if (!hasTextAI()) {
+    set(p, { stage: "Revisi otomatis butuh AI teks (Claude CLI). Ubah naskahnya langsung di editor." });
+    return;
+  }
+  const ch = channelOf(p);
+  const chars = getCharacters(ch.id);
+  const layout = layoutOf(p);
+  const castIds = animCast(chars).map((c) => c.id);
+  set(p, { status: "writing", stage: "Merevisi naskah sesuai catatan", progress: 0.2 });
+  const base = buildPrompt(p, t, chars, p.facts || [], ch, layout);
+  const current: ScriptResult = {
+    title: p.title || "", titleOptions: p.titleOptions || [], caption: p.caption || "", hashtags: p.hashtags || [],
+    coverText: p.coverText || "", coverKeyword: p.coverKeyword || "",
+    scenes: p.scenes.map(({ id: _i, audio: _a, durationSec: _d, image: _im, ...rest }) => rest as any),
+  };
+  let r = await generateJson<ScriptResult>(revisePrompt(base, current, note, notes.slice(0, -1)), scriptSchema(layout));
+  r = sanitizeScript(r, t, p.productIds || [], layout, castIds);
+  const dir = path.join(projectDir(p.id), "public");
+  const old = p.scenes;
+  const scenes: Scene[] = r.scenes.map((s, i) => {
+    const prev = old.find((o) => o.text === s.text && o.speaker === s.speaker);
+    return { ...s, id: `s${i + 1}`, audio: prev?.audio, durationSec: prev?.durationSec, image: prev?.image };
+  });
+  // hapus file suara yang tidak dipakai lagi
+  const keep = new Set(scenes.map((s) => s.audio).filter(Boolean));
+  for (const o of old) if (o.audio && !keep.has(o.audio)) fs.rmSync(path.join(dir, o.audio), { force: true });
+  set(p, { title: r.title, titleOptions: r.titleOptions, scenes, caption: r.caption, hashtags: r.hashtags, coverText: r.coverText, coverKeyword: r.coverKeyword });
 }
 
 async function main() {
@@ -437,25 +562,38 @@ async function main() {
     if (step === "all") await doClips(p);
     if (step === "clip") await doClips(p, sceneId);
   } else {
+  if (step === "questions") return doQuestions(p);
   if (step === "all" || step === "script") {
     if (!(await doScript(p))) return;
   }
-  if (step === "all" || step === "voice") await doVoice(p, sceneId);
+  if (step === "revise") await doRevise(p);
+  if (step === "script" || step === "revise") {
+    // berhenti di sini: naskah menunggu persetujuan pembuat konten
+    refreshChecks(p);
+    set(p, { status: "script_review", stage: "Naskah menunggu persetujuanmu", progress: 0, error: undefined, approvedScriptAt: undefined });
+    return;
+  }
+  if (step === "all" || step === "voice" || step === "produce") await doVoice(p, sceneId);
   if (step === "rewrite") await doRewrite(p, sceneId);
-  if (step === "all" || step === "images") await doImages(p);
+  if (step === "all" || step === "images" || step === "produce") await doImages(p);
   if (step === "image") {
     if (!hasApiKey()) set(p, { stage: "Membuat gambar butuh GEMINI_API_KEY" });
     else await doImages(p, sceneId);
   }
   }
-  const rendered = step === "all" || step === "render";
+  const rendered = step === "all" || step === "render" || step === "produce";
   if (rendered) await doRender(p);
   refreshChecks(p);
+  const done = !!p.video && rendered;
+  // naskah yang belum pernah disetujui (mis. setelah tulis ulang satu scene) kembali menunggu persetujuan
+  const waiting = !done && !p.video && !p.approvedScriptAt && p.kind !== "affiliate";
   set(p, {
-    status: p.video && rendered ? "ready" : "draft",
-    stage: p.video && rendered ? "Video siap" : "Ada perubahan, render ulang untuk memperbarui video",
+    status: done ? "ready" : waiting ? "script_review" : "draft",
+    stage: done ? "Video siap, tinggal kamu tinjau" : waiting ? "Naskah menunggu persetujuanmu" : "Ada perubahan, render ulang untuk memperbarui video",
     progress: 1,
     error: undefined,
+    // video baru selalu ditinjau ulang sebelum boleh diunggah
+    ...(done ? { review: "review" as const, approvedVideoAt: undefined } : {}),
   });
 }
 

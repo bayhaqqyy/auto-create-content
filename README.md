@@ -25,6 +25,26 @@ Pilih channel aktif di menu kiri. Semua halaman (buat konten, proyek, template, 
 
 Disamakan dengan episode yang sudah tayang: latar navy dengan grid 60px dan lingkaran dekoratif, font Plus Jakarta Sans, header "KODEKEPO!" dengan penghitung episode dan garis progres, tiap bab berupa pill tag dan judul dua baris (baris kedua warna aksen), kartu info (chat WhatsApp, notifikasi, panggilan masuk dengan waveform, langkah, perbandingan, angka), subtitle dalam kotak dengan label KEPO/PAHAM dan kata yang belum diucapkan redup, outro terang dengan logo, "Episode depan: kita kepoin teknologi lainnya", ajakan follow, dan kotak lime tagline. Frame pertama berupa judul besar seperti cover, karena di EP.021 hook di detik pertama terbukti berpengaruh. Musik latar dan SFX dibuat khusus (bukan stock) dan mengecil saat dialog.
 
+### Tampilan video & galeri template
+
+Ada enam tampilan video, dipilih di brand kit (bawaan channel), di template, atau saat membuat konten:
+
+- **Kartu gelap**: latar gelap brand, judul bab, kartu motion graphic (gaya EP lama).
+- **Layar HP terang**: latar terang penuh dengan HP besar di tengah; isi scene (chat, notifikasi, langkah, angka) tampil di layar HP. Gaya EP.031/032 yang retensinya paling tinggi.
+- **Teks besar**: judul bab sangat besar di tengah dan subtitle besar tanpa kotak, cocok untuk daftar, fakta cepat, dan cerita POV.
+- **Horor kartun**: kartun 2D bergaris tebal (gaya serial KKN). Tokoh berekspresi (kulit, rambut, hijab, peci, sarung, kacamata), set kamar posko, rumah panggung, warung, sungai klotok, jalan kampung, rumah tua, hutan. Ada cap waktu di pojok, judul serial, subtitle bernama, efek ketukan TOK!, cahaya merah, sosok bermata merah, lampu padam, dan kotak voting di scene terakhir.
+- **Stickman ekspresif**: stickman bersendi dengan ekspresi besar (kaget, panik, bingung, bangga…), properti HP, 7 set berwarna, efek kaget, bohlam ide, stempel MITOS/SALAH, centang, dan konfeti.
+- **Motivasi siluet**: siluet sinematik; langit berubah dari hujan ke matahari terbit sepanjang video, ada anak tangga yang dinaiki satu per satu, puncak, kota, dan jalan.
+
+Tiga tampilan animasi digambar langsung dari kode (`remotion/anim/`), jadi tidak butuh gambar AI. Saat menulis naskah, AI memilih untuk tiap scene: tempat, tokoh, pose, ekspresi, kejadian, dan gerak kamera dari daftar di `lib/anim.ts`. Naskah cerita lalu diperiksa sekali lagi oleh AI (alur sebab-akibat, konsistensi tokoh dan jam, kecocokan arahan dengan kalimat) sebelum disimpan. Semua arahan bisa diubah per scene di editor proyek. Wujud kartun tiap karakter channel diatur di halaman Karakter. Horor dan motivasi memakai musik latar sendiri (`bgm-horor.wav`, `bgm-motivasi.wav`).
+
+Template berjenis **cerita** (Horor Kartun Serial, Motivasi Siluet) tidak melakukan riset web; aturannya melarang angka, nama orang nyata, dan kutipan tokoh terkenal.
+
+Header nama channel di atas video sekarang mati secara bawaan karena area itu tertutup kolom cari TikTok; bisa dinyalakan lagi di brand kit.
+
+Menu **Template** punya **Galeri template** yang bisa dipakai channel mana pun: Horor Kartun Serial, Stickman Mitos vs Fakta, Motivasi Siluet, Cek Sekarang, Arti Tanda Misterius, Berita Cepat, Mitos vs Fakta, Top 3 Hitung Mundur, POV Cerita Singkat, dan Tanya Jawab Duo.
+Saat ditambahkan, peran narator/penanya/penjawab otomatis diisi karakter channel aktif. Semua preset membawa aturan hook: detik 0-2 kerugian/kejutan plus visual, detik 2-5 janji payoff, detik 5 langsung isi.
+
 ### Gaya visual
 
 - **Kartu motion graphic**: semuanya dirender dari kode sesuai isi scene.
@@ -74,14 +94,17 @@ Render pertama kali akan mengunduh Chrome Headless Shell otomatis (lewat Remotio
 ## Cara kerja
 
 1. **Buat konten**: tulis topik, pilih template dan opsi.
-2. Pipeline jalan di proses terpisah (`scripts/run-pipeline.ts`), progresnya tampil di halaman proyek:
+2. **Rancang dulu**: AI menyiapkan 3-5 pertanyaan pilihan ganda (sudut hook, contoh kasus, tokoh, latar, penutup…) sesuai topik dan template. Jawabanmu, plus catatan tambahan, jadi keputusan wajib di prompt naskah. Pertanyaan bisa dilewati lewat kotak centang "Tanya dulu sebelum menulis naskah".
+3. **Persetujuan naskah**: naskah berhenti di status *Cek naskah*. Edit langsung di editor, atau tulis catatan revisi dan klik **Revisi dengan AI** (bisa berkali-kali; catatan lama tetap dipertahankan). Suara dan video baru dibuat setelah **Setujui naskah & buat video**.
+4. **Persetujuan video**: video yang selesai berstatus *Cek video*. **Setujui video** menandainya *Disetujui* (antrean upload otomatis nanti), atau tulis catatan revisi: naskah direvisi, kamu setujui lagi, lalu dirender ulang. Suara scene yang kalimatnya tidak berubah dipakai lagi.
+5. Pipeline jalan di proses terpisah (`scripts/run-pipeline.ts`), progresnya tampil di halaman proyek:
    - **Riset** dengan model teks Gemini + `google_search`. Sumber disimpan dan perlu kamu centang "Sudah saya cek".
    - **Naskah** dalam JSON terstruktur sesuai struktur scene dan aturan template.
    - **Suara** per scene dengan Gemini TTS, memakai voice dan gaya bicara karakter.
    - **Subtitle** maksimal 2 baris, kata kunci di-highlight lime, juga diekspor ke `.srt`.
    - **Render** dengan [Remotion](https://www.remotion.dev): 1080×1920, 30 fps, H.264 + AAC.
-3. **Editor**: ubah dialog, teks layar, kata highlight, jenis visual, atau upload klip Google Flow per scene, lalu **Render ulang**. Scene yang dialognya berubah otomatis dibuatkan suara baru.
-4. Unduh video, caption, `.srt`, dan semua prompt klip.
+6. **Editor**: ubah dialog, teks layar, kata highlight, jenis visual, atau upload klip Google Flow per scene, lalu **Render ulang**. Scene yang dialognya berubah otomatis dibuatkan suara baru.
+7. Unduh video, caption, `.srt`, dan semua prompt klip.
 
 Model bisa diganti lewat `GEMINI_TEXT_MODEL` dan `GEMINI_TTS_MODEL` di `.env.local` kalau Google merilis versi baru.
 

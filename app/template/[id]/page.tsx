@@ -4,7 +4,8 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../../../components/api";
 import { Strip } from "../../../components/Strip";
-import type { Character, Template } from "../../../lib/types";
+import type { Character, Layout, Template } from "../../../lib/types";
+import { LAYOUTS } from "../../../lib/defaults";
 
 export default function EditTemplate({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -34,7 +35,7 @@ export default function EditTemplate({ params }: { params: Promise<{ id: string 
     setErr("");
     try {
       await api(`/api/templates/${id}`, { method: "PUT", json: t });
-      setMsg("Template disimpan.");
+      setMsg("Alur disimpan.");
       setTimeout(() => setMsg(""), 2500);
     } catch (e: any) {
       setErr(e.message);
@@ -61,9 +62,9 @@ export default function EditTemplate({ params }: { params: Promise<{ id: string 
     <div className="wrap" style={{ maxWidth: 1200 }}>
       <div className="stack" style={{ gap: 10 }}>
         <nav aria-label="Breadcrumb" className="small">
-          <Link href="/template">Template</Link> <span className="muted">/ {t.name}</span>
+          <Link href="/template">Alur channel</Link> <span className="muted">/ {t.name}</span>
         </nav>
-        <h1 className="h1">{t.name || "Template baru"}</h1>
+        <h1 className="h1">{t.name || "Alur baru"}</h1>
       </div>
       {err ? <p className="banner" role="alert">{err}</p> : null}
       <div className="editor">
@@ -89,14 +90,7 @@ export default function EditTemplate({ params }: { params: Promise<{ id: string 
                 <input id="mx" type="number" min={10} className="input" value={t.maxSec} onChange={(e) => set({ maxSec: Number(e.target.value) })} />
               </div>
             </div>
-            <div className="field" style={{ maxWidth: 320 }}>
-              <label htmlFor="vm">Gaya visual</label>
-              <select id="vm" className="select" value={t.visualMode || ""} onChange={(e) => set({ visualMode: (e.target.value || undefined) as Template["visualMode"] })}>
-                <option value="">Ikut brand kit channel</option>
-                <option value="cards">Kartu motion graphic</option>
-                <option value="3d">Gambar 3D AI per scene</option>
-              </select>
-            </div>
+            <p className="muted small" style={{ margin: 0 }}>Style visual dipilih saat membuat konten (bawaannya dari brand kit channel), jadi alur ini bisa dipakai dengan style apa pun.</p>
             <fieldset style={{ border: 0, margin: 0, padding: 0 }} className="stack">
               <legend className="label" style={{ marginBottom: 8 }}>Karakter</legend>
               <div className="row">
@@ -121,7 +115,7 @@ export default function EditTemplate({ params }: { params: Promise<{ id: string 
             </div>
             <ol className="list" style={{ listStyle: "none", margin: 0, padding: 0 }}>
               {t.scenes.map((s, i) => (
-                <li key={i} className="row" style={{ padding: "14px 22px", gap: 12 }}>
+                <li key={i} className="scene-row">
                   <span className="muted" style={{ width: 20, fontVariantNumeric: "tabular-nums" }}>{i + 1}</span>
                   <select aria-label={`Karakter scene ${i + 1}`} className="select" style={{ width: 130 }} value={s.speaker} onChange={(e) => set({ scenes: t.scenes.map((x, j) => (j === i ? { ...x, speaker: e.target.value } : x)) })}>
                     {t.characters.map((c) => <option key={c} value={c}>{nameOf(c)}</option>)}
@@ -129,9 +123,11 @@ export default function EditTemplate({ params }: { params: Promise<{ id: string 
                   <input aria-label={`Tujuan scene ${i + 1}`} className="input" style={{ flex: "1 1 240px" }} value={s.purpose} placeholder="Apa yang terjadi di scene ini" onChange={(e) => set({ scenes: t.scenes.map((x, j) => (j === i ? { ...x, purpose: e.target.value } : x)) })} />
                   <input aria-label={`Durasi scene ${i + 1} dalam detik`} type="number" min={1} className="input" style={{ width: 80 }} value={s.seconds} onChange={(e) => set({ scenes: t.scenes.map((x, j) => (j === i ? { ...x, seconds: Number(e.target.value) } : x)) })} />
                   <span className="muted small">dtk</span>
+                  <span className="scene-actions">
                   <button className="btn quiet sm" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Naikkan scene ${i + 1}`}>Naik</button>
                   <button className="btn quiet sm" onClick={() => move(i, 1)} disabled={i === t.scenes.length - 1} aria-label={`Turunkan scene ${i + 1}`}>Turun</button>
                   <button className="btn quiet sm" onClick={() => set({ scenes: t.scenes.filter((_, j) => j !== i) })} disabled={t.scenes.length === 1} aria-label={`Hapus scene ${i + 1}`}>Hapus</button>
+                  </span>
                 </li>
               ))}
             </ol>

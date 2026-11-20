@@ -6,7 +6,7 @@ import type { Project } from "../../../../lib/types";
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
-const BUSY = ["queued", "researching", "writing", "voicing", "imaging", "rendering"];
+const BUSY = ["queued", "asking", "researching", "writing", "voicing", "imaging", "rendering"];
 
 export async function GET(_: Request, { params }: Ctx) {
   const { id } = await params;
@@ -24,6 +24,13 @@ export async function PATCH(req: Request, { params }: Ctx) {
   const allowed: (keyof Project)[] = ["title", "titleOptions", "caption", "hashtags", "coverText", "coverKeyword", "sources", "views", "review", "episode", "voice", "vibe", "ambient"];
   const next: Project = { ...p };
   for (const k of allowed) if (k in b) (next as any)[k] = (b as any)[k];
+  // ganti alur hanya ke alur milik channel yang sama, dan hanya sebelum naskah disetujui
+  if (b.templateId && b.templateId !== p.templateId) {
+    const nt = getTemplate(b.templateId);
+    if (!nt || nt.channelId !== p.channelId) return Response.json({ error: "Alur tidak ditemukan di channel ini." }, { status: 400 });
+    next.templateId = nt.id;
+    next.templateReason = "Dipilih manual.";
+  }
   if (Array.isArray(b.scenes)) {
     let changed = false;
     next.scenes = b.scenes.map((s) => {

@@ -5,9 +5,60 @@ import { useRouter } from "next/navigation";
 import { api } from "../../../components/api";
 import type { Character, Product, Project, Scene, Template, VisualKind } from "../../../lib/types";
 import { AFFILIATE_UPLOAD } from "../../../lib/policy";
+import { ANIM_CAMERA, ANIM_EVENTS, ANIM_MOODS, ANIM_POSES, ANIM_SETS, isAnimLayout, LOOK_PRESETS } from "../../../lib/anim";
+import type { AnimDirection, AnimLayout } from "../../../lib/types";
 
-const BUSY = ["queued", "researching", "writing", "voicing", "imaging", "rendering"];
+/** Arahan adegan animasi: set, kejadian, kamera, dan tokoh yang tampil. */
+function AnimEditor({ s, layout, chars, onChange }: { s: Scene; layout: AnimLayout; chars: Character[]; onChange: (a: AnimDirection) => void }) {
+  const a = s.anim!;
+  const who = [...chars.map((c) => ({ id: c.id, name: c.name })), ...Object.entries(LOOK_PRESETS).map(([id, l]) => ({ id, name: l.label }))];
+  const sel = (id: string, label: string, value: string, opts: { id: string; desc?: string }[], on: (v: string) => void) => (
+    <div className="field">
+      <label htmlFor={id} className="small">{label}</label>
+      <select id={id} className="select" value={value} onChange={(e) => on(e.target.value)}>
+        {opts.map((o) => <option key={o.id} value={o.id} title={o.desc}>{o.id}</option>)}
+      </select>
+    </div>
+  );
+  const setCast = (i: number, patch: Partial<AnimDirection["cast"][number]>) => onChange({ ...a, cast: a.cast.map((c, j) => (j === i ? { ...c, ...patch } : c)) });
+  const max = layout === "horor" ? 4 : layout === "stickman" ? 2 : 1;
+  return (
+    <div className="stack" style={{ gap: 10, padding: 14, borderRadius: 14, background: "var(--panel, rgba(0,0,0,0.04))" }}>
+      <span className="small" style={{ fontWeight: 700 }}>Arahan animasi</span>
+      <div className="grid2">
+        {sel(`as-${s.id}`, "Tempat", a.set, ANIM_SETS[layout], (v) => onChange({ ...a, set: v }))}
+        {sel(`ae-${s.id}`, "Kejadian", a.event || "tidak-ada", ANIM_EVENTS[layout], (v) => onChange({ ...a, event: v }))}
+        {sel(`ac-${s.id}`, "Kamera", a.camera || "dorong", ANIM_CAMERA.map((id) => ({ id })), (v) => onChange({ ...a, camera: v }))}
+        {layout === "horor" ? (
+          <div className="field">
+            <label htmlFor={`st-${s.id}`} className="small">Cap waktu (HARI | JAM | TEMPAT)</label>
+            <input id={`st-${s.id}`} className="input" value={a.stamp || ""} onChange={(e) => onChange({ ...a, stamp: e.target.value })} />
+          </div>
+        ) : null}
+      </div>
+      {a.cast.map((c, i) => (
+        <div key={i} className="row" style={{ gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+          {layout === "horor" ? sel(`aw-${s.id}-${i}`, `Tokoh ${i + 1}`, c.who, who.map((w) => ({ id: w.id, desc: w.name })), (v) => setCast(i, { who: v })) : null}
+          {sel(`ap-${s.id}-${i}`, "Pose", c.pose, ANIM_POSES[layout], (v) => setCast(i, { pose: v }))}
+          {layout !== "motivasi" ? sel(`am-${s.id}-${i}`, "Ekspresi", c.mood, ANIM_MOODS[layout], (v) => setCast(i, { mood: v })) : null}
+          {layout !== "motivasi" ? (
+            <label className="small" style={{ display: "flex", gap: 6, alignItems: "center", paddingBottom: 12 }}>
+              <input type="checkbox" checked={!!c.talk} onChange={(e) => setCast(i, { talk: e.target.checked })} /> bicara
+            </label>
+          ) : null}
+          {a.cast.length > 1 ? <button className="btn quiet sm" style={{ marginBottom: 6 }} onClick={() => onChange({ ...a, cast: a.cast.filter((_, j) => j !== i) })}>Hapus</button> : null}
+        </div>
+      ))}
+      {a.cast.length < max ? (
+        <button className="btn quiet sm" style={{ alignSelf: "flex-start" }} onClick={() => onChange({ ...a, cast: [...a.cast, { ...a.cast[a.cast.length - 1] }] })}>Tambah tokoh</button>
+      ) : null}
+    </div>
+  );
+}
+
+const BUSY = ["queued", "asking", "researching", "writing", "voicing", "imaging", "rendering"];
 const BASE_STAGES: { key: string; label: string }[] = [
+  { key: "asking", label: "Menyiapkan pertanyaan" },
   { key: "researching", label: "Riset sumber" },
   { key: "writing", label: "Menulis naskah" },
   { key: "voicing", label: "Membuat suara" },
@@ -160,7 +211,8 @@ function SceneRow({
             <textarea id={`it-${s.id}`} className="textarea" rows={3} value={s.visual.items.join("\n")} onChange={(e) => set({ visual: { ...s.visual, items: e.target.value.split("\n") } })} />
           </div>
         ) : null}
-        <p className="prompt" style={{ margin: 0 }}>Prompt gambar/klip 3D: {s.prompt}</p>
+        {s.anim && isAnimLayout(p.layout) ? <AnimEditor s={s} layout={p.layout} chars={chars} onChange={(anim) => set({ anim })} /> : (
+        <p className="prompt" style={{ margin: 0 }}>Prompt gambar/klip 3D: {s.prompt}</p>)}
         {s.visual.clip ? <p className="small muted" style={{ margin: 0 }}>Klip terpasang: {s.visual.clip}</p> : null}
         <div className="row">
           <button className="btn quiet sm" onClick={() => onRun("rewrite", s.id)} disabled={!!p.demo} title={p.demo ? "Butuh Claude CLI" : undefined}>
@@ -267,6 +319,126 @@ function ProductPanel({ x, onSaved, onCopy }: { x: Product; onSaved: (p: Product
   );
 }
 
+/** Tahap perancangan: jawab pertanyaan AI sebelum naskah ditulis. */
+function BriefForm({ p, onDone, onError }: { p: Project; onDone: (p: Project) => void; onError: (m: string) => void }) {
+  const qs = p.brief?.questions || [];
+  const [pick, setPick] = useState<Record<string, string>>(() => Object.fromEntries(qs.map((q) => [q.id, q.options[0] || ""])));
+  const [own, setOwn] = useState<Record<string, string>>({});
+  const [note, setNote] = useState("");
+  const [sending, setSending] = useState(false);
+  const answerOf = (id: string) => (pick[id] === "__own" ? (own[id] || "").trim() : pick[id]);
+  const missing = qs.filter((q) => !answerOf(q.id)).length;
+  async function send(skip: boolean) {
+    setSending(true);
+    try {
+      onDone(await api<Project>(`/api/projects/${p.id}/brief`, { method: "POST", json: { skip, note, answers: Object.fromEntries(qs.map((q) => [q.id, answerOf(q.id)])) } }));
+    } catch (e: any) {
+      onError(e.message);
+      setSending(false);
+    }
+  }
+  return (
+    <div className="stack" style={{ maxWidth: 760, gap: 20 }}>
+      <div className="stack" style={{ gap: 6 }}>
+        <h2 className="h2">Sebelum nulis naskah, jawab ini dulu</h2>
+        <p className="muted" style={{ margin: 0 }}>Jawabanmu dipakai untuk merancang naskah. Pilihan pertama adalah rekomendasi AI.</p>
+      </div>
+      {qs.map((q, i) => (
+        <fieldset key={q.id} className="card stack" style={{ margin: 0, gap: 10 }}>
+          <legend className="h3" style={{ padding: 0, float: "left", width: "100%" }}>{i + 1}. {q.question}</legend>
+          {q.why ? <p className="muted small" style={{ margin: 0 }}>{q.why}</p> : null}
+          {[...q.options, "__own"].map((o) => (
+            <label key={o} className="row" style={{ gap: 10, padding: "10px 14px", borderRadius: 12, border: pick[q.id] === o ? "2px solid var(--navy)" : "1px solid var(--line2)", cursor: "pointer" }}>
+              <input type="radio" name={q.id} checked={pick[q.id] === o} onChange={() => setPick({ ...pick, [q.id]: o })} />
+              {o === "__own" ? (
+                <input className="input" style={{ flex: 1 }} placeholder="Jawaban sendiri…" aria-label={`Jawaban sendiri untuk pertanyaan ${i + 1}`} value={own[q.id] || ""}
+                  onFocus={() => setPick({ ...pick, [q.id]: "__own" })} onChange={(e) => setOwn({ ...own, [q.id]: e.target.value })} />
+              ) : <span>{o}</span>}
+            </label>
+          ))}
+        </fieldset>
+      ))}
+      <div className="field">
+        <label htmlFor="brief-note">Catatan tambahan (opsional)</label>
+        <textarea id="brief-note" className="textarea" rows={3} placeholder="Mis. sebut merek HP Samsung, jangan terlalu seram untuk anak, pakai nama tokoh Raka…" value={note} onChange={(e) => setNote(e.target.value)} />
+      </div>
+      <div className="row">
+        <button className="btn primary" disabled={sending || missing > 0} onClick={() => send(false)}>{sending ? "Mengirim…" : "Tulis naskah"}</button>
+        <button className="btn quiet" disabled={sending} onClick={() => send(true)}>Lewati, langsung tulis</button>
+        {missing ? <span className="muted small">{missing} pertanyaan belum dijawab</span> : null}
+      </div>
+    </div>
+  );
+}
+
+/** Kotak persetujuan: naskah (sebelum video dibuat) atau video (sebelum diunggah). */
+function ApprovalCard({ p, target, beforeSend, onDone, onError, alur, onAlur }: { p: Project; target: "script" | "video"; beforeSend: () => Promise<boolean>; onDone: (p: Project) => void; onError: (m: string) => void; alur?: Template[]; onAlur?: (id: string) => void }) {
+  const [note, setNote] = useState("");
+  const [sending, setSending] = useState(false);
+  const history = (p.revisions || []).filter((r) => r.target === target || target === "script");
+  async function go(kind: "approve" | "revise") {
+    if (!(await beforeSend())) return;
+    setSending(true);
+    try {
+      onDone(await api<Project>(`/api/projects/${p.id}/${kind}`, { method: "POST", json: { target, note } }));
+      setNote("");
+    } catch (e: any) {
+      onError(e.message);
+    }
+    setSending(false);
+  }
+  const script = target === "script";
+  return (
+    <div className="card stack" style={{ border: "2px solid var(--navy)", gap: 14 }}>
+      <div className="row between" style={{ alignItems: "flex-start" }}>
+        <div className="stack" style={{ gap: 4 }}>
+          <span className="tag warn" style={{ alignSelf: "flex-start" }}>{script ? "Menunggu persetujuan naskah" : "Menunggu persetujuan video"}</span>
+          <p style={{ margin: 0 }}>
+            {script
+              ? "Baca naskahnya di tab Naskah & storyboard. Edit langsung kalau perlu, atau tulis catatan revisi untuk AI. Suara dan video baru dibuat setelah kamu setujui."
+              : "Tonton videonya. Kalau sudah pas, setujui supaya siap diunggah. Kalau belum, tulis apa yang perlu diubah; naskahnya direvisi dulu dan kamu setujui lagi sebelum dirender ulang."}
+          </p>
+        </div>
+      </div>
+      {script && alur && alur.length > 1 ? (
+        <div className="row" style={{ gap: 10, alignItems: "center" }}>
+          <label htmlFor="alur" className="small" style={{ fontWeight: 700 }}>Alur</label>
+          <select id="alur" className="select" style={{ maxWidth: 280 }} value={p.templateId} onChange={(e) => onAlur?.(e.target.value)}>
+            {alur.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+          {p.templateReason ? <span className="muted small" style={{ flex: "1 1 240px" }}>{p.templateReason}</span> : null}
+        </div>
+      ) : null}
+      {history.length ? (
+        <details>
+          <summary className="small muted" style={{ cursor: "pointer" }}>{history.length} revisi sebelumnya</summary>
+          <ol className="small" style={{ margin: "8px 0 0", paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4 }}>
+            {history.map((r) => <li key={r.at}>{r.target === "video" ? "Video: " : ""}{r.note}</li>)}
+          </ol>
+        </details>
+      ) : null}
+      <div className="field">
+        <label htmlFor={`rev-${target}`}>Catatan revisi</label>
+        <textarea id={`rev-${target}`} className="textarea" rows={3} placeholder={script ? "Mis. hook-nya kurang nendang, scene 3 terlalu panjang, ganti nama tokoh jadi Raka…" : "Mis. ekspresi di scene 2 kurang takut, penutupnya kepanjangan…"} value={note} onChange={(e) => setNote(e.target.value)} />
+      </div>
+      <div className="row">
+        <button className="btn primary" disabled={sending} onClick={() => go("approve")}>{script ? "Setujui naskah & buat video" : "Setujui video"}</button>
+        <button className="btn" disabled={sending || note.trim().length < 3 || !!p.demo} title={p.demo ? "Revisi otomatis butuh AI teks" : undefined} onClick={() => go("revise")}>Revisi dengan AI</button>
+      </div>
+    </div>
+  );
+}
+
+function ApprovedCard({ p }: { p: Project }) {
+  return (
+    <div className="card stack" style={{ border: "2px solid #2FB36B", gap: 8 }}>
+      <span className="tag" style={{ alignSelf: "flex-start", background: "#2FB36B", color: "#fff" }}>Disetujui, siap diunggah</span>
+      <p style={{ margin: 0 }}>Video ini sudah kamu setujui{p.approvedVideoAt ? ` pada ${new Date(p.approvedVideoAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}` : ""}. Unduh videonya dan caption untuk diunggah.</p>
+      <p className="muted small" style={{ margin: 0 }}>Upload otomatis ke TikTok, Instagram, Facebook, dan YouTube menyusul. Video berstatus disetujui akan jadi antrean upload otomatis.</p>
+    </div>
+  );
+}
+
 export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -280,6 +452,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [err, setErr] = useState("");
   const [notFound, setNotFound] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [alur, setAlur] = useState<Template[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -296,7 +469,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     load();
   }, [load]);
   useEffect(() => {
-    if (p?.channelId) api(`/api/templates?channel=${p.channelId}`).then((d) => setChars(d.characters)).catch(() => {});
+    if (p?.channelId) api(`/api/templates?channel=${p.channelId}`).then((d) => { setChars(d.characters); setAlur(d.templates.filter((t: Template) => t.id !== "product-ad")); }).catch(() => {});
     if (p?.channelId && p.kind === "affiliate")
       api(`/api/products?channel=${p.channelId}`).then((d) => setProducts(d.products.filter((x: Product) => p.productIds?.includes(x.id)))).catch(() => {});
   }, [p?.channelId]);
@@ -308,6 +481,11 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     const t = setInterval(load, 1500);
     return () => clearInterval(t);
   }, [p?.status, load]);
+
+  useEffect(() => {
+    if (p?.status === "script_review") setTab("Naskah & storyboard");
+    if (p?.status === "ready") setTab("Video");
+  }, [p?.status]);
 
   const edit = (patch: Partial<Project>) => {
     setDraft((d) => (d ? { ...d, ...patch } : d));
@@ -390,10 +568,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
           </p>
           <h1 className="h1" style={{ fontSize: "clamp(28px, 4vw, 40px)" }}>{p.title || p.topic}</h1>
         </div>
-        {!busy && p.status !== "failed" ? (
+        {!busy && p.status !== "failed" && p.status !== "brief" ? (
           <div className="row">
             {dirty ? <button className="btn primary" onClick={save}>Simpan perubahan</button> : null}
-            <button className="btn" onClick={() => run("render")}>{p.video ? "Render ulang" : "Render video"}</button>
+            {p.status !== "script_review" ? <button className="btn" onClick={() => run("render")}>{p.video ? "Render ulang" : "Render video"}</button> : null}
             {p.video ? <a className="btn accent" href={file(p.id, p.video, true)}>Unduh video</a> : null}
           </div>
         ) : null}
@@ -403,6 +581,22 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
       {err ? <p className="banner" role="alert">{err}</p> : null}
 
       {busy ? <Progress p={p} /> : null}
+
+      {p.status === "brief" ? <BriefForm p={p} onDone={(d) => { setP(d); setDraft(d); }} onError={setErr} /> : null}
+      {p.status === "script_review" ? (
+        <ApprovalCard p={p} target="script" beforeSend={async () => !dirty || !!(await save())} onDone={(d) => { setP(d); setDraft(d); }} onError={setErr}
+          alur={alur} onAlur={async (tid) => {
+            if (!confirm("Ganti alur? Naskah akan ditulis ulang dengan alur ini.")) return;
+            try {
+              await api<Project>(`/api/projects/${id}`, { method: "PATCH", json: { ...(draft || {}), templateId: tid } });
+              await run("script");
+            } catch (e: any) { setErr(e.message); }
+          }} />
+      ) : null}
+      {p.status === "ready" && p.video && p.kind !== "affiliate" && p.review !== "approved" && p.review !== "tayang" ? (
+        <ApprovalCard p={p} target="video" beforeSend={async () => !dirty || !!(await save())} onDone={(d) => { setP(d); setDraft(d); }} onError={setErr} />
+      ) : null}
+      {p.review === "approved" && !busy ? <ApprovedCard p={p} /> : null}
 
       {p.status === "failed" ? (
         <div className="stack" style={{ maxWidth: 760, gap: 20 }}>
@@ -417,7 +611,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         </div>
       ) : null}
 
-      {!busy && p.status !== "failed" ? (
+      {!busy && p.status !== "failed" && p.status !== "brief" ? (
         <div className="editor">
           <div className="col">
             <div className="seg" role="tablist" aria-label="Bagian konten" style={{ alignSelf: "flex-start" }}>
@@ -608,9 +802,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             <div className="card stack">
               <h2 className="h3">Publikasi</h2>
               <div className="seg" role="group" aria-label="Status publikasi">
-                {(["draft", "review", "tayang"] as const).map((r) => (
+                {(["draft", "review", "approved", "tayang"] as const).map((r) => (
                   <button key={r} aria-pressed={(draft.review || "draft") === r} onClick={() => edit({ review: r })}>
-                    {r === "draft" ? "Draft" : r === "review" ? "Review" : "Tayang"}
+                    {r === "draft" ? "Draft" : r === "review" ? "Review" : r === "approved" ? "Disetujui" : "Tayang"}
                   </button>
                 ))}
               </div>

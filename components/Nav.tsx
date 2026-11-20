@@ -10,7 +10,7 @@ const GROUPS = [
     label: "Pengaturan channel",
     items: [
       { href: "/channel", label: "Brand kit" },
-      { href: "/template", label: "Template" },
+      { href: "/template", label: "Alur channel" },
       { href: "/karakter", label: "Karakter & suara" },
     ],
   },

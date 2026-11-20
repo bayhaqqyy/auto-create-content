@@ -5,6 +5,7 @@ import { api } from "../../components/api";
 import { useChannel } from "../../components/channel";
 import { BrandPreview } from "../../components/BrandPreview";
 import type { Channel } from "../../lib/types";
+import { LAYOUTS } from "../../lib/defaults";
 
 const COLOR_LABELS: [keyof Channel["colors"], string][] = [
   ["bg", "Latar"],
@@ -151,8 +152,19 @@ export default function BrandKit() {
                 </select>
               </div>
             </div>
+            <div className="field">
+              <label htmlFor="lay">Tampilan video bawaan</label>
+              <select id="lay" className="select" value={ch.layout || "kartu"} onChange={(e) => set({ layout: e.target.value as Channel["layout"] })}>
+                {LAYOUTS.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+              <span className="muted small">{LAYOUTS.find((l) => l.id === (ch.layout || "kartu"))?.desc} Template bisa memakai tampilan lain.</span>
+            </div>
             <label className="row small" style={{ gap: 8 }}>
               <input type="checkbox" checked={ch.grid} onChange={(e) => set({ grid: e.target.checked })} /> Latar grid tipis
+            </label>
+            <label className="row small" style={{ gap: 8 }}>
+              <input type="checkbox" checked={!!ch.showHeader} onChange={(e) => set({ showHeader: e.target.checked })} /> Tampilkan header nama channel di atas video
+              <span className="muted">(bawaan mati, area atas tertutup kolom cari TikTok)</span>
             </label>
             <div className="field"><label htmlFor="is">Gaya gambar 3D (bahasa Inggris)</label><textarea id="is" className="textarea" rows={2} value={ch.imageStyle} onChange={(e) => set({ imageStyle: e.target.value })} /></div>
           </section>
@@ -179,6 +191,8 @@ export default function BrandKit() {
                 <select id="bp" className="select" value={ch.bgmPreset} onChange={(e) => set({ bgmPreset: e.target.value as Channel["bgmPreset"] })}>
                   <option value="tech">Tech (tenang, berdenyut)</option>
                   <option value="ceria">Ceria (untuk anak & santai)</option>
+                  <option value="horor">Horor (mencekam, pelan)</option>
+                  <option value="motivasi">Motivasi (hangat, naik pelan)</option>
                   <option value="none">Tanpa musik</option>
                 </select>
               </div>

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { channelDir, projectDir, ROOT } from "./store";
 
-export type Step = "all" | "script" | "voice" | "images" | "image" | "render" | "rewrite" | "clip";
+export type Step = "all" | "questions" | "script" | "revise" | "produce" | "voice" | "images" | "image" | "render" | "rewrite" | "clip";
 
 /** Jalankan pipeline di proses terpisah; log ditulis ke data/projects/<id>/pipeline.log */
 export function startJob(id: string, step: Step, sceneId?: string) {

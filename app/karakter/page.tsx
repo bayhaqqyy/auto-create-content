@@ -3,6 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../../components/api";
 import { useChannel } from "../../components/channel";
 import type { Character } from "../../lib/types";
+import { LOOK_PRESETS } from "../../lib/anim";
+
+/** id preset yang persis sama dengan wujud karakter, atau "" kalau otomatis/ubahan sendiri */
+const presetOf = (c: Character) => {
+  if (!c.look2d) return "";
+  const hit = Object.entries(LOOK_PRESETS).find(([, l]) => Object.entries(c.look2d!).every(([k, v]) => (l as any)[k] === v));
+  return hit ? hit[0] : "";
+};
 
 export default function Characters() {
   const { current } = useChannel();
@@ -114,6 +122,29 @@ export default function Characters() {
           <div className="field" style={{ gridColumn: "1 / -1" }}>
             <label htmlFor={`l-${c.id}`} className="small">Tampilan untuk gambar 3D (bahasa Inggris)</label>
             <input id={`l-${c.id}`} className="input" value={c.look} placeholder="Kosongkan untuk narator tanpa wujud" onChange={(e) => set(c.id, { look: e.target.value })} />
+          </div>
+          <div className="field" style={{ gridColumn: "1 / -1" }}>
+            <label htmlFor={`k-${c.id}`} className="small">Wujud di animasi kartun (horor)</label>
+            <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+              <select id={`k-${c.id}`} className="select" style={{ flex: "1 1 220px" }} value={presetOf(c) || (c.look2d ? "__custom" : "")} onChange={(e) => {
+                const { label: _l, ...look } = (LOOK_PRESETS[e.target.value] || {}) as any;
+                set(c.id, { look2d: LOOK_PRESETS[e.target.value] ? look : undefined });
+              }}>
+                <option value="">Otomatis (sesuai urutan karakter)</option>
+                {Object.entries(LOOK_PRESETS).map(([id, l]) => <option key={id} value={id}>{l.label}</option>)}
+                {c.look2d && !presetOf(c) ? <option value="__custom" disabled>Ubahan sendiri</option> : null}
+              </select>
+              {c.look2d ? (
+                <>
+                  {([["skin", "Kulit"], ["top", "Baju"], ["bottomCol", "Bawahan"], [c.look2d.hair === "hijab" ? "hijabCol" : "hairCol", c.look2d.hair === "hijab" ? "Hijab" : "Rambut"]] as const).map(([k, lab]) => (
+                    <label key={k} className="small" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {lab}
+                      <input type="color" value={(c.look2d as any)[k] || "#000000"} onChange={(e) => set(c.id, { look2d: { ...c.look2d!, [k]: e.target.value } })} style={{ width: 40, height: 34, border: 0, padding: 0 }} />
+                    </label>
+                  ))}
+                </>
+              ) : null}
+            </div>
           </div>
           <div className="field"><label htmlFor={`c-${c.id}`} className="small">Warna label</label><input id={`c-${c.id}`} type="color" className="input" style={{ height: 46, padding: 4 }} value={c.color} onChange={(e) => set(c.id, { color: e.target.value })} /></div>
           <div className="field"><label htmlFor={`t-${c.id}`} className="small">Warna teks label</label><input id={`t-${c.id}`} type="color" className="input" style={{ height: 46, padding: 4 }} value={c.textColor} onChange={(e) => set(c.id, { textColor: e.target.value })} /></div>
